@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Zoo Tycoon</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #gameContainer {
+      width: 1000px;
+      height: 700px;
+      border: 2px solid #4CAF50;
+      border-radius: 15px;
+      box-shadow: 0 0 30px rgba(76, 175, 80, 0.3);
+      background: rgba(0, 0, 0, 0.8);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      background: rgba(0, 0, 0, 0.9);
+      border-radius: 15px;
+    }
+
+    .screen h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px #4CAF50;
+      text-align: center;
+      color: #4CAF50;
+    }
+
+    .screen p {
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      max-width: 700px;
+      line-height: 1.5;
+    }
+
+    .screen button {
+      padding: 15px 30px;
+      background: transparent;
+      border: 2px solid #4CAF50;
+      color: #4CAF50;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+      border-radius: 8px;
+    }
+
+    .screen button:hover {
+      background: #4CAF50;
+      color: #000;
+      box-shadow: 0 0 15px #4CAF50;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #gameHeader {
+      height: 80px;
+      background: rgba(0, 0, 0, 0.7);
+      border-bottom: 1px solid #4CAF50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    #gameMain {
+      flex: 1;
+      display: flex;
+    }
+
+    #zooArea {
+      flex: 2;
+      background: #1a1a1a;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #controlPanel {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.8);
+      border-left: 1px solid #4CAF50;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .stat {
+      margin: 5px 0;
+      padding: 5px;
+      background: rgba(76, 175, 80, 0.1);
+      border-radius: 5px;
+    }
+
+    .creature {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 32px;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: all 0.3s;
+      user-select: none;
+    }
+
+    .creature:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+    }
+
+    .creature.happy {
+      animation: bounce 2s infinite;
+    }
+
+    .creature.hungry {
+      animation: shake 1s infinite;
+      filter: brightness(0.7);
+    }
+
+    .creature.sick {
+      animation: wobble 2s infinite;
+      filter: sepia(1);
+    }
+
+    @keyframes bounce {
+      0%, 20%, 60%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-15px); }
+      80% { transform: translateY(-7px); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    @keyframes wobble {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-5deg); }
+      75% { transform: rotate(5deg); }
+    }
+
+    .enclosure {
+      position: absolute;
+      border: 2px dashed #4CAF50;
+      border-radius: 15px;
+      background: rgba(76, 175, 80, 0.05);
+    }
+
+    .button {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      background: transparent;
+      border: 1px solid #4CAF50;
+      color: #4CAF50;
+      font-family: 'Courier New', Courier, monospace;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+    .button:hover {
+      background: rgba(76, 175, 80, 0.2);
+    }
+
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .creature-info {
+      background: rgba(76, 175, 80, 0.1);
+      border: 1px solid #4CAF50;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+    }
+
+    .warning {
+      color: #ff9800;
+      font-weight: bold;
+    }
+
+    .danger {
+      color: #f44336;
+      font-weight: bold;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      margin: 5px 0;
+      background: rgba(76, 175, 80, 0.1);
+      border-radius: 5px;
+      border: 1px solid #4CAF50;
+    }
+
+    .cost {
+      color: #ffa726;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="startScreen" class="screen">
+      <h1>🦎 AI ZOO TYCOON</h1>
+      <p>Welcome to the world's first AI Species Zoo!</p>
+      <p>🤖 Manage exotic AI creatures like GPTigers and Claude-o-diles</p>
+      <p>💰 Balance costs, latency, and happiness</p>
+      <p>🍎 Feed them data, upgrade their habitats</p>
+      <p>⚠️ Avoid hallucinations and system crashes!</p>
+      <button onclick="startGame()">OPEN ZOO</button>
+      <a href="index.html" style="padding: 15px 30px; background: transparent; border: 2px solid #4CAF50; color: #4CAF50; font-family: 'Courier New', Courier, monospace; font-size: 16px; cursor: pointer; margin: 10px; transition: all 0.3s; text-decoration: none; display: inline-block;">← ALL GAMES</a>
+    </div>
+
+    <div id="pauseScreen" class="screen hidden">
+      <h1>⏸️ ZOO PAUSED</h1>
+      <p>Animals are resting...</p>
+      <button onclick="resumeGame()">RESUME</button>
+      <button onclick="showStart()">RESTART</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h1 id="gameOverTitle">💸 ZOO BANKRUPT!</h1>
+      <p>Final Score: <span id="finalScore"></span></p>
+      <p>Days Survived: <span id="daysSurvived"></span></p>
+      <p id="gameOverReason"></p>
+      <button onclick="showStart()">RESTART ZOO</button>
+    </div>
+
+    <div id="gameHeader" class="hidden">
+      <div>
+        <span>💰 Budget: $<span id="budget">1000</span></span> |
+        <span>📅 Day: <span id="day">1</span></span> |
+        <span>😊 Happiness: <span id="happiness">80</span>%</span>
+      </div>
+      <div>
+        <span>⚡ Avg Latency: <span id="latency">120</span>ms</span> |
+        <span>🧠 Creatures: <span id="creatureCount">0</span></span>
+      </div>
+    </div>
+
+    <div id="gameMain" class="hidden">
+      <div id="zooArea">
+        <!-- Creatures will be spawned here -->
+      </div>
+
+      <div id="controlPanel">
+        <h3>🏪 AI Creature Shop</h3>
+        <div id="shop">
+          <div class="shop-item">
+            <span>🐅 GPTiger</span>
+            <button class="button" onclick="buyCreature('gptiger')">
+              <span class="cost">$200</span>
+            </button>
+          </div>
+          <div class="shop-item">
+            <span>🐊 Claude-o-dile</span>
+            <button class="button" onclick="buyCreature('claudodile')">
+              <span class="cost">$300</span>
+            </button>
+          </div>
+          <div class="shop-item">
+            <span>🦆 LLaMuck</span>
+            <button class="button" onclick="buyCreature('llamuck')">
+              <span class="cost">$150</span>
+            </button>
+          </div>
+          <div class="shop-item">
+            <span>🐙 BARDopus</span>
+            <button class="button" onclick="buyCreature('bardopus')">
+              <span class="cost">$400</span>
+            </button>
+          </div>
+        </div>
+
+        <h3>🛠️ Management</h3>
+        <button class="button" onclick="feedAll()">
+          🍎 Feed All ($<span id="feedCost">50</span>)
+        </button>
+        <button class="button" onclick="optimizeLatency()">
+          ⚡ Optimize Latency ($100)
+        </button>
+        <button class="button" onclick="addEnclosure()">
+          🏠 Add Enclosure ($500)
+        </button>
+
+        <div id="selectedCreature" class="creature-info hidden">
+          <h4>Selected Creature</h4>
+          <div id="creatureDetails"></div>
+          <button class="button" onclick="upgradeCreature()">
+            🔧 Upgrade ($<span id="upgradeCost">0</span>)
+          </button>
+        </div>
+
+        <div id="alerts">
+          <!-- Alerts will appear here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gameState = 'start';
+    let isPaused = false;
+    let gameLoop = null;
+
+    // Game state
+    let budget = 1000;
+    let day = 1;
+    let dayTimer = 0;
+    let happiness = 80;
+    let averageLatency = 120;
+    let creatures = [];
+    let selectedCreature = null;
+    let enclosures = [];
+    let gameScore = 0;
+
+    const creatureTypes = {
+      gptiger: {
+        name: 'GPTiger',
+        emoji: '🐅',
+        cost: 200,
+        latency: 80,
+        happiness: 20,
+        hunger: 0,
+        health: 100,
+        level: 1,
+        description: 'Fast and creative, but needs lots of tokens'
+      },
+      claudodile: {
+        name: 'Claude-o-dile',
+        emoji: '🐊',
+        cost: 300,
+        latency: 60,
+        happiness: 25,
+        hunger: 0,
+        health: 100,
+        level: 1,
+        description: 'Reliable and safe, excellent reasoning'
+      },
+      llamuck: {
+        name: 'LLaMuck',
+        emoji: '🦆',
+        cost: 150,
+        latency: 150,
+        happiness: 15,
+        hunger: 0,
+        health: 100,
+        level: 1,
+        description: 'Budget option, quirky but effective'
+      },
+      bardopus: {
+        name: 'BARDopus',
+        emoji: '🐙',
+        cost: 400,
+        latency: 70,
+        happiness: 30,
+        hunger: 0,
+        health: 100,
+        level: 1,
+        description: 'Multimodal genius, very creative'
+      }
+    };
+
+    function startGame() {
+      hideAllScreens();
+      document.getElementById('gameHeader').classList.remove('hidden');
+      document.getElementById('gameMain').classList.remove('hidden');
+
+      gameState = 'playing';
+      budget = 1000;
+      day = 1;
+      dayTimer = 0;
+      happiness = 80;
+      averageLatency = 120;
+      creatures = [];
+      enclosures = [];
+      selectedCreature = null;
+      gameScore = 0;
+
+      updateUI();
+      startGameLoop();
+    }
+
+    function pauseGame() {
+      if (gameState === 'playing') {
+        isPaused = true;
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      isPaused = false;
+      document.getElementById('pauseScreen').classList.add('hidden');
+    }
+
+    function showStart() {
+      hideAllScreens();
+      gameState = 'start';
+      document.getElementById('startScreen').classList.remove('hidden');
+      if (gameLoop) clearInterval(gameLoop);
+    }
+
+    function hideAllScreens() {
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+      });
+    }
+
+    function startGameLoop() {
+      clearInterval(gameLoop);
+      gameLoop = setInterval(() => {
+        if (!isPaused && gameState === 'playing') {
+          updateGame();
+        }
+      }, 1000);
+    }
+
+    function updateGame() {
+      dayTimer++;
+
+      // New day every 30 seconds
+      if (dayTimer >= 30) {
+        day++;
+        dayTimer = 0;
+        newDay();
+      }
+
+      // Update creatures
+      creatures.forEach(creature => {
+        creature.hunger += Math.random() * 5;
+        if (creature.hunger > 100) {
+          creature.health -= 2;
+          creature.happiness -= 3;
+        }
+
+        if (creature.health <= 0) {
+          removeCreature(creature);
+        }
+
+        updateCreatureVisual(creature);
+      });
+
+      calculateAverageLatency();
+      calculateAverageHappiness();
+      updateUI();
+      checkGameOver();
+    }
+
+    function newDay() {
+      // Daily costs
+      let dailyCost = creatures.length * 10; // Maintenance cost
+      budget -= dailyCost;
+
+      // Random events
+      if (Math.random() < 0.3) {
+        triggerRandomEvent();
+      }
+
+      gameScore += creatures.length * 10;
+    }
+
+    function triggerRandomEvent() {
+      const events = [
+        {
+          message: "🎪 Visitor surge! +$200",
+          effect: () => budget += 200
+        },
+        {
+          message: "🐛 Hallucination outbreak! All creatures need debugging",
+          effect: () => {
+            creatures.forEach(c => c.health -= 20);
+            budget -= 100;
+          }
+        },
+        {
+          message: "⚡ Server upgrade! Latency improved",
+          effect: () => {
+            creatures.forEach(c => c.latency *= 0.8);
+          }
+        },
+        {
+          message: "🍎 Data quality issue! Feeding costs doubled",
+          effect: () => {
+            document.getElementById('feedCost').textContent =
+              parseInt(document.getElementById('feedCost').textContent) * 2;
+          }
+        }
+      ];
+
+      const event = events[Math.floor(Math.random() * events.length)];
+      event.effect();
+      showAlert(event.message);
+    }
+
+    function buyCreature(type) {
+      const creatureData = creatureTypes[type];
+      if (budget >= creatureData.cost) {
+        budget -= creatureData.cost;
+
+        const creature = {
+          ...creatureData,
+          id: Date.now(),
+          x: Math.random() * 400 + 50,
+          y: Math.random() * 300 + 50
+        };
+
+        creatures.push(creature);
+        createCreatureElement(creature);
+        updateUI();
+      } else {
+        showAlert("💸 Not enough budget!");
+      }
+    }
+
+    function createCreatureElement(creature) {
+      const element = document.createElement('div');
+      element.className = 'creature happy';
+      element.textContent = creature.emoji;
+      element.style.left = creature.x + 'px';
+      element.style.top = creature.y + 'px';
+      element.setAttribute('data-id', creature.id);
+
+      element.onclick = () => selectCreature(creature);
+
+      document.getElementById('zooArea').appendChild(element);
+    }
+
+    function updateCreatureVisual(creature) {
+      const element = document.querySelector(`[data-id="${creature.id}"]`);
+      if (!element) return;
+
+      element.className = 'creature';
+
+      if (creature.hunger > 80) {
+        element.classList.add('hungry');
+      } else if (creature.health < 50) {
+        element.classList.add('sick');
+      } else {
+        element.classList.add('happy');
+      }
+
+      // Random movement
+      if (Math.random() < 0.1) {
+        creature.x = Math.max(10, Math.min(640, creature.x + (Math.random() - 0.5) * 100));
+        creature.y = Math.max(10, Math.min(520, creature.y + (Math.random() - 0.5) * 100));
+        element.style.left = creature.x + 'px';
+        element.style.top = creature.y + 'px';
+      }
+    }
+
+    function selectCreature(creature) {
+      selectedCreature = creature;
+
+      const details = document.getElementById('creatureDetails');
+      details.innerHTML = `
+        <strong>${creature.name}</strong><br>
+        Health: ${Math.round(creature.health)}%<br>
+        Hunger: ${Math.round(creature.hunger)}%<br>
+        Happiness: ${Math.round(creature.happiness)}%<br>
+        Latency: ${Math.round(creature.latency)}ms<br>
+        Level: ${creature.level}
+      `;
+
+      document.getElementById('upgradeCost').textContent = creature.level * 100;
+      document.getElementById('selectedCreature').classList.remove('hidden');
+    }
+
+    function feedAll() {
+      const cost = parseInt(document.getElementById('feedCost').textContent);
+      if (budget >= cost) {
+        budget -= cost;
+        creatures.forEach(creature => {
+          creature.hunger = Math.max(0, creature.hunger - 50);
+          creature.happiness += 10;
+          creature.health = Math.min(100, creature.health + 10);
+        });
+        showAlert("🍎 All creatures fed!");
+      } else {
+        showAlert("💸 Not enough budget to feed all!");
+      }
+    }
+
+    function optimizeLatency() {
+      if (budget >= 100) {
+        budget -= 100;
+        creatures.forEach(creature => {
+          creature.latency *= 0.9;
+        });
+        showAlert("⚡ Latency optimized!");
+      }
+    }
+
+    function addEnclosure() {
+      if (budget >= 500) {
+        budget -= 500;
+        // Visual enclosure (placeholder)
+        showAlert("🏠 New enclosure added!");
+      }
+    }
+
+    function upgradeCreature() {
+      if (!selectedCreature) return;
+
+      const cost = selectedCreature.level * 100;
+      if (budget >= cost) {
+        budget -= cost;
+        selectedCreature.level++;
+        selectedCreature.latency *= 0.9;
+        selectedCreature.happiness += 5;
+        selectCreature(selectedCreature); // Refresh display
+        showAlert(`🔧 ${selectedCreature.name} upgraded!`);
+      }
+    }
+
+    function removeCreature(creature) {
+      creatures = creatures.filter(c => c.id !== creature.id);
+      const element = document.querySelector(`[data-id="${creature.id}"]`);
+      if (element) element.remove();
+
+      if (selectedCreature && selectedCreature.id === creature.id) {
+        selectedCreature = null;
+        document.getElementById('selectedCreature').classList.add('hidden');
+      }
+
+      showAlert(`💀 ${creature.name} has been removed from the zoo!`);
+    }
+
+    function calculateAverageLatency() {
+      if (creatures.length === 0) {
+        averageLatency = 120;
+        return;
+      }
+
+      const total = creatures.reduce((sum, c) => sum + c.latency, 0);
+      averageLatency = Math.round(total / creatures.length);
+    }
+
+    function calculateAverageHappiness() {
+      if (creatures.length === 0) {
+        happiness = 80;
+        return;
+      }
+
+      const total = creatures.reduce((sum, c) => sum + c.happiness, 0);
+      happiness = Math.round(total / creatures.length);
+    }
+
+    function showAlert(message) {
+      const alerts = document.getElementById('alerts');
+      const alert = document.createElement('div');
+      alert.className = 'warning';
+      alert.textContent = message;
+      alert.style.animation = 'bounce 0.5s';
+
+      alerts.appendChild(alert);
+
+      setTimeout(() => {
+        if (alert.parentNode) {
+          alert.parentNode.removeChild(alert);
+        }
+      }, 3000);
+    }
+
+    function updateUI() {
+      document.getElementById('budget').textContent = budget;
+      document.getElementById('day').textContent = day;
+      document.getElementById('happiness').textContent = happiness;
+      document.getElementById('latency').textContent = averageLatency;
+      document.getElementById('creatureCount').textContent = creatures.length;
+    }
+
+    function checkGameOver() {
+      if (budget <= 0 && creatures.length === 0) {
+        gameOver("You ran out of money and creatures!");
+      } else if (happiness <= 0) {
+        gameOver("All your creatures became too unhappy!");
+      } else if (averageLatency > 1000) {
+        gameOver("Your zoo became too slow and visitors left!");
+      }
+    }
+
+    function gameOver(reason) {
+      gameState = 'gameOver';
+      clearInterval(gameLoop);
+
+      document.getElementById('finalScore').textContent = gameScore;
+      document.getElementById('daysSurvived').textContent = day;
+      document.getElementById('gameOverReason').textContent = reason;
+
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+    }
+
+    // Event listeners
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (gameState === 'playing' && !isPaused) {
+          pauseGame();
+        } else if (isPaused) {
+          resumeGame();
+        }
+      }
+    });
+  </script>
+</body>
+</html>

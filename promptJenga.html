@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Jenga</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      background: radial-gradient(ellipse at center, #1a1a3e 0%, #000 100%);
+      color: #fff;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #gameContainer {
+      width: 800px;
+      height: 600px;
+      border: 2px solid #7c4dff;
+      border-radius: 15px;
+      box-shadow: 0 0 30px rgba(124, 77, 255, 0.5);
+      background: rgba(0, 0, 0, 0.8);
+      position: relative;
+      perspective: 1000px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 15px;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      background: rgba(0, 0, 0, 0.9);
+      border-radius: 15px;
+    }
+
+    .screen h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px #7c4dff;
+      text-align: center;
+      color: #7c4dff;
+    }
+
+    .screen p {
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      max-width: 600px;
+      line-height: 1.5;
+    }
+
+    .screen button {
+      padding: 15px 30px;
+      background: transparent;
+      border: 2px solid #7c4dff;
+      color: #7c4dff;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+      border-radius: 8px;
+    }
+
+    .screen button:hover {
+      background: #7c4dff;
+      color: #000;
+      box-shadow: 0 0 15px #7c4dff;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #7c4dff;
+    }
+
+    #promptDisplay {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #7c4dff;
+      max-width: 600px;
+      text-align: center;
+      z-index: 10;
+    }
+
+    .block {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .block:hover {
+      filter: brightness(1.3);
+    }
+
+    .block.selected {
+      filter: brightness(1.5);
+      box-shadow: 0 0 10px #7c4dff;
+    }
+
+    #instructions {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #7c4dff;
+      font-size: 12px;
+      max-width: 200px;
+      z-index: 10;
+    }
+
+    .shake {
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    #stability {
+      color: #4caf50;
+      font-weight: bold;
+    }
+
+    .unstable {
+      color: #ff9800 !important;
+    }
+
+    .critical {
+      color: #f44336 !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="ui">
+      <div>Level: <span id="levelText">1</span></div>
+      <div>Blocks Left: <span id="blocksText">12</span></div>
+      <div>Stability: <span id="stability">100%</span></div>
+    </div>
+
+    <div id="instructions">
+      Click blocks to remove them<br>
+      Don't let the tower fall!<br>
+      ESC = Pause
+    </div>
+
+    <div id="promptDisplay">
+      <div>Current Prompt: <span id="currentPrompt">Initialize AI Model</span></div>
+    </div>
+
+    <div id="startScreen" class="screen">
+      <h1>🧱 PROMPT JENGA</h1>
+      <p>Stack prompt refinements carefully without toppling your AI model!</p>
+      <p>Each block represents a prompt component. Remove blocks strategically</p>
+      <p>while maintaining model stability. The tower gets taller each level!</p>
+      <p>Balance strategy, dexterity, and language skills!</p>
+      <button onclick="startGame()">START BUILDING</button>
+      <a href="index.html" style="padding: 15px 30px; background: transparent; border: 2px solid #fa0; color: #fa0; font-family: 'Courier New', Courier, monospace; font-size: 16px; cursor: pointer; margin: 10px; transition: all 0.3s; text-decoration: none; display: inline-block;">← ALL GAMES</a>
+    </div>
+
+    <div id="pauseScreen" class="screen hidden">
+      <h1>⏸️ PAUSED</h1>
+      <p>Tower construction paused. Ready to continue?</p>
+      <button onclick="resumeGame()">RESUME</button>
+      <button onclick="showStart()">RESTART</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h1 id="gameOverTitle">💥 TOWER COLLAPSED!</h1>
+      <p>Your AI model has become unstable!</p>
+      <p>Level Reached: <span id="finalLevel"></span></p>
+      <p>Blocks Removed: <span id="totalBlocks"></span></p>
+      <button onclick="showStart()">REBUILD</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let gameState = 'start';
+    let currentLevel = 1;
+    let isPaused = false;
+    let blocks = [];
+    let selectedBlock = null;
+    let mouseX = 0;
+    let mouseY = 0;
+    let stability = 100;
+    let totalBlocksRemoved = 0;
+    let animationFrame = null;
+
+    const prompts = [
+      "Initialize AI Model",
+      "Set Temperature Parameter",
+      "Define Token Limits",
+      "Configure Safety Filters",
+      "Enable Conversation Mode",
+      "Add Context Window",
+      "Set Response Format",
+      "Apply Fine-tuning",
+      "Enable Multi-modal",
+      "Configure RAG Pipeline"
+    ];
+
+    class Block {
+      constructor(x, y, width, height, text, isCore = false) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.text = text;
+        this.isCore = isCore;
+        this.rotation = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.gravity = 0.3;
+        this.removed = false;
+        this.stability = 1.0;
+      }
+
+      draw() {
+        if (this.removed) return;
+
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.rotate(this.rotation);
+
+        // Block color based on type and stability
+        let color = this.isCore ? '#ff4444' : '#7c4dff';
+        if (this.stability < 0.7) color = '#ff9800';
+        if (this.stability < 0.4) color = '#f44336';
+
+        // Draw block
+        ctx.fillStyle = color;
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+
+        // Draw border
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+
+        // Draw glow if selected
+        if (selectedBlock === this) {
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 20;
+          ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+          ctx.shadowBlur = 0;
+        }
+
+        // Draw text
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, 0, 4);
+
+        ctx.restore();
+      }
+
+      update() {
+        if (this.removed) {
+          this.y += this.vy;
+          this.x += this.vx;
+          this.vy += this.gravity;
+          this.rotation += 0.1;
+        } else {
+          // Check stability based on supporting blocks
+          this.updateStability();
+        }
+      }
+
+      updateStability() {
+        const supportingBlocks = blocks.filter(block =>
+          !block.removed &&
+          block !== this &&
+          block.y > this.y &&
+          block.x < this.x + this.width &&
+          block.x + block.width > this.x &&
+          Math.abs(block.y - (this.y + this.height)) < 10
+        );
+
+        if (supportingBlocks.length === 0 && this.y < canvas.height - 100) {
+          this.stability = Math.max(0, this.stability - 0.02);
+        } else {
+          this.stability = Math.min(1, this.stability + 0.01);
+        }
+
+        // Apply physics if unstable
+        if (this.stability < 0.3) {
+          this.vy += 0.1;
+          this.rotation += (Math.random() - 0.5) * 0.05;
+        }
+      }
+
+      contains(x, y) {
+        return x >= this.x && x <= this.x + this.width &&
+               y >= this.y && y <= this.y + this.height && !this.removed;
+      }
+
+      remove() {
+        this.removed = true;
+        this.vy = -2;
+        this.vx = (Math.random() - 0.5) * 4;
+        totalBlocksRemoved++;
+      }
+    }
+
+    function createTower() {
+      blocks = [];
+      const baseY = canvas.height - 60;
+      const blockWidth = 120;
+      const blockHeight = 30;
+      const levels = 3 + currentLevel;
+
+      for (let level = 0; level < levels; level++) {
+        const y = baseY - (level * blockHeight);
+        const blocksInLevel = 3;
+        const isHorizontal = level % 2 === 0;
+
+        for (let i = 0; i < blocksInLevel; i++) {
+          let x, width, height, text;
+
+          if (isHorizontal) {
+            x = canvas.width / 2 - (blocksInLevel * blockWidth) / 2 + i * blockWidth;
+            width = blockWidth;
+            height = blockHeight;
+          } else {
+            x = canvas.width / 2 - blockWidth / 2;
+            y = baseY - (level * blockHeight) + i * (blockHeight / 3);
+            width = blockWidth;
+            height = blockHeight / 3;
+          }
+
+          text = prompts[Math.floor(Math.random() * prompts.length)];
+          const isCore = Math.random() < 0.2; // 20% chance of core blocks
+
+          blocks.push(new Block(x, y, width, height, text, isCore));
+        }
+      }
+    }
+
+    function startGame() {
+      hideAllScreens();
+      gameState = 'playing';
+      currentLevel = 1;
+      stability = 100;
+      totalBlocksRemoved = 0;
+      selectedBlock = null;
+      createTower();
+      updateUI();
+      gameLoop();
+    }
+
+    function pauseGame() {
+      if (gameState === 'playing') {
+        isPaused = true;
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      isPaused = false;
+      document.getElementById('pauseScreen').classList.add('hidden');
+    }
+
+    function showStart() {
+      hideAllScreens();
+      gameState = 'start';
+      document.getElementById('startScreen').classList.remove('hidden');
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    }
+
+    function hideAllScreens() {
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+      });
+    }
+
+    function updateUI() {
+      document.getElementById('levelText').textContent = currentLevel;
+      document.getElementById('blocksText').textContent = blocks.filter(b => !b.removed).length;
+
+      const stabilityElement = document.getElementById('stability');
+      stabilityElement.textContent = Math.round(stability) + '%';
+
+      stabilityElement.className = '';
+      if (stability < 70) stabilityElement.classList.add('unstable');
+      if (stability < 30) stabilityElement.classList.add('critical');
+
+      if (selectedBlock) {
+        document.getElementById('currentPrompt').textContent = selectedBlock.text;
+      }
+    }
+
+    function checkGameOver() {
+      // Calculate overall stability
+      const activeBlocks = blocks.filter(b => !b.removed);
+      if (activeBlocks.length === 0) {
+        nextLevel();
+        return;
+      }
+
+      const avgStability = activeBlocks.reduce((sum, block) => sum + block.stability, 0) / activeBlocks.length;
+      stability = avgStability * 100;
+
+      // Check for fallen blocks
+      const fallenBlocks = activeBlocks.filter(block =>
+        block.y > canvas.height - 30 || block.stability < 0.1
+      );
+
+      if (fallenBlocks.length > 0 || stability < 10) {
+        gameOver();
+      }
+    }
+
+    function nextLevel() {
+      currentLevel++;
+      stability = 100;
+      selectedBlock = null;
+      createTower();
+
+      // Add visual celebration
+      canvas.classList.add('shake');
+      setTimeout(() => canvas.classList.remove('shake'), 500);
+    }
+
+    function gameOver() {
+      gameState = 'gameOver';
+      document.getElementById('finalLevel').textContent = currentLevel;
+      document.getElementById('totalBlocks').textContent = totalBlocksRemoved;
+
+      if (stability < 10) {
+        document.getElementById('gameOverTitle').textContent = '💥 TOWER COLLAPSED!';
+      } else {
+        document.getElementById('gameOverTitle').textContent = '🎉 LEVEL COMPLETE!';
+      }
+
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+    }
+
+    function gameLoop() {
+      if (gameState !== 'playing' || isPaused) {
+        if (gameState === 'playing') {
+          animationFrame = requestAnimationFrame(gameLoop);
+        }
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw background grid
+      ctx.strokeStyle = 'rgba(124, 77, 255, 0.1)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+
+      // Draw ground
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+      // Update and draw blocks
+      blocks.forEach(block => {
+        block.update();
+        block.draw();
+      });
+
+      checkGameOver();
+      updateUI();
+
+      animationFrame = requestAnimationFrame(gameLoop);
+    }
+
+    // Event listeners
+    canvas.addEventListener('click', (e) => {
+      if (gameState !== 'playing' || isPaused) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Find clicked block
+      const clickedBlock = blocks.find(block => block.contains(x, y));
+
+      if (clickedBlock && !clickedBlock.removed) {
+        if (selectedBlock === clickedBlock) {
+          // Remove selected block
+          clickedBlock.remove();
+          selectedBlock = null;
+        } else {
+          // Select block
+          selectedBlock = clickedBlock;
+        }
+      } else {
+        selectedBlock = null;
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (gameState === 'playing' && !isPaused) {
+          pauseGame();
+        } else if (isPaused) {
+          resumeGame();
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Lab Escape</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      background: #000;
+      color: #0ff;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    #gameContainer {
+      width: 800px;
+      height: 600px;
+      border: 2px solid #0ff;
+      box-shadow: 0 0 20px #0ff;
+      position: relative;
+      background: linear-gradient(45deg, #001122 0%, #000 100%);
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    #timer {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 0 10px #0ff;
+      color: #0ff;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 20;
+    }
+
+    .screen h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px #0ff;
+    }
+
+    .screen p {
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      max-width: 600px;
+    }
+
+    .screen button {
+      padding: 15px 30px;
+      background: transparent;
+      border: 2px solid #0ff;
+      color: #0ff;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+    }
+
+    .screen button:hover {
+      background: #0ff;
+      color: #000;
+      box-shadow: 0 0 15px #0ff;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .warning {
+      color: #ff0;
+      text-shadow: 0 0 10px #ff0;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="ui">
+      <div>Level: <span id="levelText">1</span></div>
+      <div>Use Arrow Keys to Move</div>
+    </div>
+
+    <div id="timer">
+      <span id="timeText">20</span>s
+    </div>
+
+    <div id="startScreen" class="screen">
+      <h1>🤖 AI LAB ESCAPE</h1>
+      <p>You are an AI prototype escaping from a research lab.</p>
+      <p>Navigate through the maze using ARROW KEYS and reach the exit before time runs out!</p>
+      <p class="warning">⚠️ First maze: 25 seconds. Each maze: 1 second LESS!</p>
+      <p>How many mazes can you escape? Beat the HIGH SCORES!</p>
+      <div id="leaderboardDisplay" style="margin-top: 20px; text-align: left; max-width: 500px;">
+        <h3 style="text-align: center;">🏆 HIGH SCORES 🏆</h3>
+        <div id="leaderboardList"></div>
+      </div>
+      <button onclick="startGame()">START ESCAPE</button>
+      <a href="index.html" style="padding: 15px 30px; background: transparent; border: 2px solid #0ff; color: #0ff; font-family: 'Courier New', Courier, monospace; font-size: 16px; cursor: pointer; margin: 10px; transition: all 0.3s; text-decoration: none; display: inline-block;">← ALL GAMES</a>
+    </div>
+
+    <div id="pauseScreen" class="screen hidden">
+      <h1>⏸️ PAUSED</h1>
+      <p>System suspended. Press ESC to resume.</p>
+      <button onclick="resumeGame()">RESUME</button>
+      <button onclick="showStart()">RESTART</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h1>🚨 GAME OVER</h1>
+      <p>SECURITY SYSTEM ACTIVATED!</p>
+      <p style="font-size: 28px; color: #0f0;">MAZES COMPLETED: <span id="finalScore"></span></p>
+      <div style="margin: 30px 0;">
+        <p>ENTER YOUR NAME FOR HIGH SCORE:</p>
+        <input type="text" id="playerName" maxlength="15"
+               style="font-family: 'Courier New', Courier, monospace;
+                      font-size: 24px;
+                      background: #000;
+                      color: #0ff;
+                      border: 2px solid #0ff;
+                      padding: 10px 20px;
+                      text-align: center;
+                      text-transform: uppercase;
+                      box-shadow: 0 0 10px #0ff;"
+               placeholder="YOUR NAME" />
+      </div>
+      <button onclick="saveScore()">SAVE SCORE</button>
+      <button onclick="showStart()">SKIP</button>
+    </div>
+
+    <div id="victoryScreen" class="screen hidden">
+      <h1>🎉 ESCAPE SUCCESSFUL</h1>
+      <p>You escaped with <span id="timeRemaining"></span>s remaining!</p>
+      <p>Mazes Completed: <span id="completedLevel"></span></p>
+      <p class="warning" id="nextLevelWarning"></p>
+      <button onclick="nextLevel()">NEXT MAZE</button>
+      <button onclick="quitAndSave()">QUIT & SAVE</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const levelText = document.getElementById('levelText');
+    const timeText = document.getElementById('timeText');
+
+    let gameState = 'start';
+    let currentLevel = 1;
+    let mazesCompleted = 0;
+    let isPaused = false;
+    let timeLimit = 25; // seconds - starts at 25, decreases each level
+    let timeRemaining = timeLimit;
+    let lastTime = 0;
+
+    // Cell size for the maze grid
+    const cellSize = 40;
+    const cols = Math.floor(canvas.width / cellSize);
+    const rows = Math.floor(canvas.height / cellSize);
+
+    // Player
+    let player = {
+      x: 1,
+      y: 1,
+      size: cellSize * 0.7,
+      color: '#0ff'
+    };
+
+    // Exit
+    let exit = {
+      x: cols - 2,
+      y: rows - 2,
+      size: cellSize * 0.8,
+      color: '#0f0'
+    };
+
+    let currentMaze = [];
+
+    // Maze generation using Recursive Backtracking algorithm
+    function generateMaze() {
+      // Initialize maze with all walls
+      const maze = [];
+      for (let y = 0; y < rows; y++) {
+        maze[y] = [];
+        for (let x = 0; x < cols; x++) {
+          maze[y][x] = 1; // 1 = wall
+        }
+      }
+
+      // Starting position
+      const startX = 1;
+      const startY = 1;
+
+      // Carve out the maze using recursive backtracking
+      const stack = [];
+      const visited = new Set();
+
+      function getKey(x, y) {
+        return `${x},${y}`;
+      }
+
+      function getUnvisitedNeighbors(x, y) {
+        const neighbors = [];
+        const directions = [
+          { dx: 0, dy: -2, wallY: -1, wallX: 0 }, // Up
+          { dx: 2, dy: 0, wallY: 0, wallX: 1 },   // Right
+          { dx: 0, dy: 2, wallY: 1, wallX: 0 },   // Down
+          { dx: -2, dy: 0, wallY: 0, wallX: -1 }  // Left
+        ];
+
+        for (let dir of directions) {
+          const nx = x + dir.dx;
+          const ny = y + dir.dy;
+
+          if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && !visited.has(getKey(nx, ny))) {
+            neighbors.push({ x: nx, y: ny, wallX: x + dir.wallX, wallY: y + dir.wallY });
+          }
+        }
+
+        return neighbors;
+      }
+
+      // Start carving
+      stack.push({ x: startX, y: startY });
+      visited.add(getKey(startX, startY));
+      maze[startY][startX] = 0;
+
+      while (stack.length > 0) {
+        const current = stack[stack.length - 1];
+        const neighbors = getUnvisitedNeighbors(current.x, current.y);
+
+        if (neighbors.length > 0) {
+          // Choose random neighbor
+          const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+          // Remove wall between current and next
+          maze[next.wallY][next.wallX] = 0;
+          maze[next.y][next.x] = 0;
+
+          visited.add(getKey(next.x, next.y));
+          stack.push({ x: next.x, y: next.y });
+        } else {
+          stack.pop();
+        }
+      }
+
+      // Ensure exit is accessible
+      maze[exit.y][exit.x] = 0;
+
+      return maze;
+    }
+
+    function startGame() {
+      hideAllScreens();
+      gameState = 'playing';
+      currentLevel = 1;
+      mazesCompleted = 0;
+      loadLevel();
+    }
+
+    function loadLevel() {
+      levelText.textContent = currentLevel;
+
+      // Calculate time limit: starts at 25, decreases by 1 each level
+      // Minimum of 1 second to keep it challenging but possible
+      timeLimit = Math.max(1, 26 - currentLevel);
+      timeRemaining = timeLimit;
+      timeText.textContent = timeLimit;
+
+      // Reset player position
+      player.x = 1;
+      player.y = 1;
+
+      // Generate a new maze
+      currentMaze = generateMaze();
+
+      lastTime = performance.now();
+    }
+
+    function nextLevel() {
+      currentLevel++;
+      hideAllScreens();
+      gameState = 'playing';
+      loadLevel();
+    }
+
+    function pauseGame() {
+      if (gameState === 'playing') {
+        isPaused = true;
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      isPaused = false;
+      document.getElementById('pauseScreen').classList.add('hidden');
+      lastTime = performance.now(); // Reset timer to avoid time jump
+    }
+
+    function showStart() {
+      hideAllScreens();
+      gameState = 'start';
+      displayLeaderboard();
+      document.getElementById('startScreen').classList.remove('hidden');
+    }
+
+    function hideAllScreens() {
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+      });
+    }
+
+    function gameOver() {
+      gameState = 'gameover';
+      document.getElementById('finalScore').textContent = mazesCompleted;
+      document.getElementById('playerName').value = '';
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+
+      // Focus on input for immediate typing
+      setTimeout(() => {
+        document.getElementById('playerName').focus();
+      }, 100);
+    }
+
+    function victory() {
+      gameState = 'victory';
+      mazesCompleted++;
+      document.getElementById('timeRemaining').textContent = Math.ceil(timeRemaining);
+      document.getElementById('completedLevel').textContent = mazesCompleted;
+
+      // Show next level's time
+      const nextLevelTime = Math.max(1, 26 - (currentLevel + 1));
+      document.getElementById('nextLevelWarning').textContent =
+        `⚠️ Next maze: ${nextLevelTime} seconds! Can you handle it?`;
+
+      document.getElementById('victoryScreen').classList.remove('hidden');
+    }
+
+    function quitAndSave() {
+      hideAllScreens();
+      gameOver();
+    }
+
+    function updateTimer(deltaTime) {
+      if (gameState === 'playing' && !isPaused) {
+        timeRemaining -= deltaTime / 1000;
+        timeText.textContent = Math.ceil(Math.max(0, timeRemaining));
+
+        // Change color as time runs out
+        if (timeRemaining < 5) {
+          timeText.style.color = '#f00';
+          timeText.style.textShadow = '0 0 10px #f00';
+        } else if (timeRemaining < 10) {
+          timeText.style.color = '#ff0';
+          timeText.style.textShadow = '0 0 10px #ff0';
+        } else {
+          timeText.style.color = '#0ff';
+          timeText.style.textShadow = '0 0 10px #0ff';
+        }
+
+        if (timeRemaining <= 0) {
+          gameOver();
+        }
+      }
+    }
+
+    function checkCollision(newX, newY) {
+      // Check if position is within bounds
+      if (newX < 0 || newX >= cols || newY < 0 || newY >= rows) {
+        return true;
+      }
+
+      // Check if position is a wall
+      if (currentMaze[newY] && currentMaze[newY][newX] === 1) {
+        return true;
+      }
+
+      return false;
+    }
+
+    function movePlayer(dx, dy) {
+      const newX = player.x + dx;
+      const newY = player.y + dy;
+
+      if (!checkCollision(newX, newY)) {
+        player.x = newX;
+        player.y = newY;
+
+        // Check if reached exit
+        if (player.x === exit.x && player.y === exit.y) {
+          victory();
+        }
+      }
+    }
+
+    function drawMaze() {
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (currentMaze[y] && currentMaze[y][x] === 1) {
+            // Draw wall
+            ctx.fillStyle = '#0ff';
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 1;
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#003344';
+            ctx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
+            ctx.globalAlpha = 1;
+            ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          } else {
+            // Draw path
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+
+    function drawExit() {
+      const x = exit.x * cellSize + cellSize / 2;
+      const y = exit.y * cellSize + cellSize / 2;
+
+      // Pulsing effect
+      const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.8;
+
+      ctx.fillStyle = exit.color;
+      ctx.shadowBlur = 20 * pulse;
+      ctx.shadowColor = exit.color;
+
+      // Draw exit door
+      ctx.fillRect(
+        exit.x * cellSize + (cellSize - exit.size) / 2,
+        exit.y * cellSize + (cellSize - exit.size) / 2,
+        exit.size,
+        exit.size
+      );
+
+      // Draw "EXIT" text
+      ctx.font = 'bold 12px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000';
+      ctx.fillText('EXIT', x, y);
+
+      ctx.shadowBlur = 0;
+    }
+
+    function drawPlayer() {
+      const x = player.x * cellSize + cellSize / 2;
+      const y = player.y * cellSize + cellSize / 2;
+
+      ctx.fillStyle = player.color;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = player.color;
+
+      // Draw player as circle
+      ctx.beginPath();
+      ctx.arc(x, y, player.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw AI symbol
+      ctx.font = 'bold 16px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000';
+      ctx.fillText('AI', x, y);
+
+      ctx.shadowBlur = 0;
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw background grid
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += cellSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += cellSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      drawMaze();
+      drawExit();
+      drawPlayer();
+    }
+
+    function gameLoop(timestamp) {
+      if (gameState === 'playing' && !isPaused) {
+        const deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+
+        updateTimer(deltaTime);
+        drawGame();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Leaderboard functions
+    function getLeaderboard() {
+      const data = localStorage.getItem('aiLabEscapeLeaderboard');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveLeaderboard(leaderboard) {
+      localStorage.setItem('aiLabEscapeLeaderboard', JSON.stringify(leaderboard));
+    }
+
+    function saveScore() {
+      const nameInput = document.getElementById('playerName');
+      const name = nameInput.value.trim().toUpperCase() || 'ANONYMOUS';
+
+      // Get current leaderboard
+      let leaderboard = getLeaderboard();
+
+      // Add new score
+      leaderboard.push({
+        name: name,
+        score: mazesCompleted,
+        date: new Date().toISOString()
+      });
+
+      // Sort by score (descending) and keep top 10
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 10);
+
+      // Save to localStorage
+      saveLeaderboard(leaderboard);
+
+      // Update display and return to start
+      displayLeaderboard();
+      showStart();
+    }
+
+    function displayLeaderboard() {
+      const leaderboard = getLeaderboard();
+      const listDiv = document.getElementById('leaderboardList');
+
+      if (leaderboard.length === 0) {
+        listDiv.innerHTML = '<p style="text-align: center; color: #666;">No scores yet. Be the first!</p>';
+        return;
+      }
+
+      let html = '<div style="font-family: \'Courier New\', monospace;">';
+      leaderboard.forEach((entry, index) => {
+        const rank = (index + 1).toString().padStart(2, '0');
+        const dots = '.'.repeat(Math.max(2, 25 - entry.name.length - entry.score.toString().length));
+        const rankColor = index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#0ff';
+
+        html += `<div style="color: ${rankColor}; text-shadow: 0 0 5px ${rankColor}; margin: 5px 0;">`;
+        html += `${rank}. ${entry.name}${dots}${entry.score}`;
+        html += '</div>';
+      });
+      html += '</div>';
+
+      listDiv.innerHTML = html;
+    }
+
+    // Event listeners
+    document.addEventListener('keydown', (e) => {
+      if (gameState === 'playing' && !isPaused) {
+        switch(e.key) {
+          case 'ArrowUp':
+            e.preventDefault();
+            movePlayer(0, -1);
+            break;
+          case 'ArrowDown':
+            e.preventDefault();
+            movePlayer(0, 1);
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            movePlayer(-1, 0);
+            break;
+          case 'ArrowRight':
+            e.preventDefault();
+            movePlayer(1, 0);
+            break;
+        }
+      }
+
+      if (e.key === 'Escape') {
+        if (gameState === 'playing' && !isPaused) {
+          pauseGame();
+        } else if (isPaused) {
+          resumeGame();
+        }
+      }
+
+      // Submit score with Enter key
+      if (e.key === 'Enter' && gameState === 'gameover') {
+        saveScore();
+      }
+    });
+
+    // Initialize leaderboard on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      displayLeaderboard();
+    });
+
+    // Start the game loop
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

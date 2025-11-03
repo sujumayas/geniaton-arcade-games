@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Shooter</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      background: black;
+      color: #0f0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #gameContainer {
+      position: relative;
+    }
+    canvas {
+      display: block;
+      background: radial-gradient(ellipse at center, #111 0%, #000 100%);
+      border: 2px solid #0f0;
+      box-shadow: 0 0 20px #0f0;
+    }
+    #typedWord {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      color: #0f0;
+      text-shadow: 0 0 10px #0f0;
+      font-weight: bold;
+    }
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      color: #0f0;
+      font-size: 18px;
+      text-shadow: 0 0 8px #0f0;
+    }
+    #lives {
+      color: #f00;
+      text-shadow: 0 0 8px #f00;
+    }
+    #score {
+      color: #0ff;
+      text-shadow: 0 0 8px #0ff;
+    }
+    #combo {
+      color: #ff0;
+      text-shadow: 0 0 8px #ff0;
+      font-size: 24px;
+      position: absolute;
+      top: 40px;
+      right: 10px;
+    }
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 100;
+    }
+    .screen h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px #0f0;
+    }
+    .screen p {
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      max-width: 600px;
+    }
+    .screen button, .screen a {
+      padding: 15px 30px;
+      background: transparent;
+      border: 2px solid #0f0;
+      color: #0f0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .screen button:hover, .screen a:hover {
+      background: #0f0;
+      color: #000;
+      box-shadow: 0 0 15px #0f0;
+    }
+    .hidden {
+      display: none;
+    }
+    #finalScore {
+      font-size: 36px;
+      color: #0ff;
+      text-shadow: 0 0 15px #0ff;
+      margin: 20px 0;
+    }
+    #leaderboard {
+      margin-top: 30px;
+      padding: 20px;
+      border: 2px solid #0f0;
+      border-radius: 10px;
+      background: rgba(0, 255, 0, 0.05);
+      max-width: 500px;
+    }
+    #leaderboard h2 {
+      font-size: 24px;
+      margin-bottom: 15px;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+    }
+    .leaderboard-entry {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 15px;
+      margin: 5px 0;
+      background: rgba(0, 255, 0, 0.1);
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    .leaderboard-entry.top3 {
+      background: rgba(0, 255, 255, 0.2);
+      font-weight: bold;
+    }
+    .leaderboard-rank {
+      color: #ff0;
+      min-width: 30px;
+    }
+    .leaderboard-name {
+      flex: 1;
+      text-align: left;
+      margin: 0 15px;
+    }
+    .leaderboard-score {
+      color: #0ff;
+    }
+    .name-input {
+      padding: 10px 15px;
+      background: rgba(0, 255, 0, 0.1);
+      border: 2px solid #0f0;
+      color: #0f0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      width: 250px;
+      outline: none;
+    }
+    .name-input::placeholder {
+      color: rgba(0, 255, 0, 0.5);
+    }
+    .name-input:focus {
+      box-shadow: 0 0 15px #0f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="typedWord"></div>
+    <div id="hud">
+      <div id="level">Level 1</div>
+      <div id="score">Score: 0</div>
+      <div id="lives">Lives: ❤️❤️❤️❤️❤️</div>
+    </div>
+    <div id="combo" class="hidden"></div>
+
+    <div id="startScreen" class="screen">
+      <h1>🎯 PROMPT SHOOTER</h1>
+      <p>Type GenAI terms to shoot falling words before they hit the ground!</p>
+      <p>Type the word and press ENTER to fire. Match words exactly (case-sensitive).</p>
+      <p><strong>Controls:</strong> Type to aim, ENTER to shoot, ESC to pause</p>
+      <p>Complete all 10 levels to win! Don't let words reach the bottom!</p>
+      <button onclick="startGame()">START GAME</button>
+      <a href="index.html">← ALL GAMES</a>
+      <div id="leaderboard">
+        <h2>🏆 TOP 10 LEADERBOARD</h2>
+        <div id="leaderboardList"></div>
+      </div>
+    </div>
+
+    <div id="pauseScreen" class="screen hidden">
+      <h1>⏸️ PAUSED</h1>
+      <p>Press ESC to resume</p>
+      <button onclick="resumeGame()">RESUME</button>
+      <button onclick="restartGame()">RESTART</button>
+      <a href="index.html">← ALL GAMES</a>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h1>💀 GAME OVER</h1>
+      <p id="finalScore"></p>
+      <p>You made it to Level <span id="finalLevel"></span></p>
+      <input type="text" id="gameOverNameInput" class="name-input" placeholder="Enter your name (optional)" maxlength="20">
+      <button onclick="saveScoreAndExit('gameOver')">CONTINUE</button>
+    </div>
+
+    <div id="winScreen" class="screen hidden">
+      <h1>🏆 VICTORY!</h1>
+      <p>You've mastered all GenAI terms!</p>
+      <p id="winScore"></p>
+      <input type="text" id="winNameInput" class="name-input" placeholder="Enter your name (optional)" maxlength="20">
+      <button onclick="saveScoreAndExit('win')">CONTINUE</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const typedDisplay = document.getElementById('typedWord');
+    const levelDisplay = document.getElementById('level');
+    const scoreDisplay = document.getElementById('score');
+    const livesDisplay = document.getElementById('lives');
+    const comboDisplay = document.getElementById('combo');
+
+    const canonX = canvas.width / 2;
+    const canonY = canvas.height - 30;
+
+    const levels = [
+      ["prompt", "token", "LLM", "embedding"],
+      ["vector", "inference", "chatbot", "alignment", "hallucination"],
+      ["context", "multimodal", "GPT", "prompting", "temperature"],
+      ["zero-shot", "fine-tune", "openAI", "transformer", "few-shot"],
+      ["decoder", "encoder", "layer", "attention"],
+      ["chain", "LangChain", "RAG", "cohere", "claude"],
+      ["replicate", "API", "autogen", "pipeline", "dataset"],
+      ["bias", "output", "training", "json", "tokenizer"],
+      ["agent", "scratchpad", "RLHF", "retrieval"],
+      ["meta", "mistral", "groq", "llama", "gemini"]
+    ];
+
+    let level = 0;
+    let words = [];
+    let activeBullets = [];
+    let particles = [];
+    let typed = "";
+    let lastFrame = 0;
+    let gameState = "start"; // start, playing, paused, gameOver, win
+    let animationId = null;
+    let lives = 5;
+    let score = 0;
+    let combo = 0;
+    let comboTimer = 0;
+    let screenShake = 0;
+    let targetWord = null;
+
+    // Audio context for sound effects
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Leaderboard functions
+    function loadLeaderboard() {
+      const data = localStorage.getItem('promptShooterLeaderboard');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveLeaderboard(leaderboard) {
+      localStorage.setItem('promptShooterLeaderboard', JSON.stringify(leaderboard));
+    }
+
+    function addScoreToLeaderboard(name, score, level) {
+      const leaderboard = loadLeaderboard();
+
+      // Check if score qualifies for top 10
+      if (leaderboard.length >= 10) {
+        const lowestScore = leaderboard[leaderboard.length - 1].score;
+        if (score <= lowestScore) {
+          // Score doesn't make top 10, don't save
+          return false;
+        }
+      }
+
+      // Add new score
+      leaderboard.push({
+        name: name.trim(),
+        score: score,
+        level: level,
+        date: new Date().toLocaleDateString()
+      });
+
+      // Sort by score descending
+      leaderboard.sort((a, b) => b.score - a.score);
+
+      // Keep only top 10
+      const top10 = leaderboard.slice(0, 10);
+      saveLeaderboard(top10);
+
+      return true;
+    }
+
+    function displayLeaderboard() {
+      const leaderboard = loadLeaderboard();
+      const listElement = document.getElementById('leaderboardList');
+
+      if (leaderboard.length === 0) {
+        listElement.innerHTML = '<p style="text-align: center; color: #0f0; opacity: 0.5;">No scores yet. Be the first!</p>';
+        return;
+      }
+
+      listElement.innerHTML = leaderboard.map((entry, index) => {
+        const rank = index + 1;
+        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+        const topClass = rank <= 3 ? 'top3' : '';
+
+        return `
+          <div class="leaderboard-entry ${topClass}">
+            <span class="leaderboard-rank">${medal}</span>
+            <span class="leaderboard-name">${entry.name}</span>
+            <span class="leaderboard-score">${entry.score}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function saveScoreAndExit(screenType) {
+      const nameInput = screenType === 'win'
+        ? document.getElementById('winNameInput')
+        : document.getElementById('gameOverNameInput');
+
+      const name = nameInput.value.trim();
+
+      // Only save if name is provided
+      if (name !== '') {
+        addScoreToLeaderboard(name, score, level + 1);
+      }
+
+      displayLeaderboard();
+      nameInput.value = '';
+      exitToMenu();
+    }
+
+    function exitToMenu() {
+      // Hide all game screens
+      document.getElementById('pauseScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      document.getElementById('winScreen').classList.add('hidden');
+
+      // Show start screen
+      document.getElementById('startScreen').classList.remove('hidden');
+
+      // Reset game state
+      gameState = "start";
+      words = [];
+      activeBullets = [];
+      particles = [];
+      targetWord = null;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function playSound(frequency, duration, type = 'sine') {
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = type;
+
+      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + duration);
+    }
+
+    function shootSound() {
+      playSound(800, 0.1, 'square');
+    }
+
+    function hitSound() {
+      playSound(1200, 0.15, 'sine');
+      setTimeout(() => playSound(1000, 0.1, 'sine'), 50);
+    }
+
+    function missSound() {
+      playSound(200, 0.3, 'sawtooth');
+    }
+
+    function gameOverSound() {
+      playSound(400, 0.2, 'sawtooth');
+      setTimeout(() => playSound(300, 0.2, 'sawtooth'), 150);
+      setTimeout(() => playSound(200, 0.4, 'sawtooth'), 300);
+    }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 200;
+        this.vy = (Math.random() - 0.5) * 200;
+        this.life = 1;
+        this.color = color;
+        this.size = Math.random() * 3 + 2;
+      }
+
+      update(delta) {
+        this.x += this.vx * delta;
+        this.y += this.vy * delta;
+        this.vy += 200 * delta; // gravity
+        this.life -= delta * 2;
+      }
+
+      draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    class FallingWord {
+      constructor(word) {
+        this.word = word;
+        this.x = Math.random() * (canvas.width - 100) + 50;
+        this.y = -50;
+        this.speed = 30 + Math.random() * 30 + (level * 5); // Speed increases per level
+        this.width = ctx.measureText(word).width;
+      }
+
+      update(delta) {
+        this.y += this.speed * delta;
+      }
+
+      draw() {
+        // Highlight if this is the target word
+        if (targetWord && targetWord.word === this.word) {
+          ctx.fillStyle = "#ff0";
+          ctx.shadowColor = "#ff0";
+          ctx.shadowBlur = 20;
+        } else {
+          ctx.fillStyle = "#0f0";
+          ctx.shadowColor = "#0f0";
+          ctx.shadowBlur = 10;
+        }
+        ctx.fillText(this.word, this.x, this.y);
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    class Bullet {
+      constructor(targetX, targetY, word) {
+        this.x = canonX;
+        this.y = canonY;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.word = word;
+
+        // Calculate trajectory
+        const dx = targetX - canonX;
+        const dy = targetY - canonY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const speed = 500;
+
+        this.vx = (dx / distance) * speed;
+        this.vy = (dy / distance) * speed;
+      }
+
+      update(delta) {
+        this.x += this.vx * delta;
+        this.y += this.vy * delta;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x - this.vx * 0.02, this.y - this.vy * 0.02);
+        ctx.strokeStyle = "#f0f";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#f0f";
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    function spawnLevel() {
+      words = levels[level].map(word => new FallingWord(word));
+      levelDisplay.textContent = "Level " + (level + 1);
+    }
+
+    function updateHUD() {
+      scoreDisplay.textContent = "Score: " + score;
+      const hearts = "❤️".repeat(Math.max(0, lives));
+      livesDisplay.textContent = "Lives: " + hearts;
+
+      if (combo > 1) {
+        comboDisplay.textContent = `${combo}x COMBO!`;
+        comboDisplay.classList.remove('hidden');
+      } else {
+        comboDisplay.classList.add('hidden');
+      }
+    }
+
+    function loseLife() {
+      lives--;
+      screenShake = 0.5;
+      missSound();
+      updateHUD();
+
+      if (lives <= 0) {
+        gameOver();
+      }
+    }
+
+    function addScore(points) {
+      score += points * Math.max(1, combo);
+      comboTimer = 2; // Reset combo timer
+      updateHUD();
+    }
+
+    function gameLoop(timestamp) {
+      if (gameState !== "playing") return;
+
+      let delta = (timestamp - lastFrame) / 1000;
+      lastFrame = timestamp;
+
+      // Update combo timer
+      if (combo > 1) {
+        comboTimer -= delta;
+        if (comboTimer <= 0) {
+          combo = 0;
+          updateHUD();
+        }
+      }
+
+      // Screen shake
+      let offsetX = 0, offsetY = 0;
+      if (screenShake > 0) {
+        offsetX = (Math.random() - 0.5) * screenShake * 20;
+        offsetY = (Math.random() - 0.5) * screenShake * 20;
+        screenShake -= delta * 2;
+      }
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.clearRect(-10, -10, canvas.width + 20, canvas.height + 20);
+
+      // Draw aiming line to target word
+      if (targetWord) {
+        ctx.beginPath();
+        ctx.moveTo(canonX, canonY);
+        ctx.lineTo(targetWord.x, targetWord.y);
+        ctx.strokeStyle = "rgba(255, 255, 0, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Draw canon
+      ctx.fillStyle = "#0f0";
+      ctx.shadowColor = "#0f0";
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(canonX, canonY, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Update and draw words
+      for (let i = words.length - 1; i >= 0; i--) {
+        let w = words[i];
+        w.update(delta);
+        w.draw();
+
+        // Check if word hit bottom
+        if (w.y > canvas.height) {
+          words.splice(i, 1);
+          combo = 0;
+          loseLife();
+        }
+      }
+
+      // Update and draw bullets
+      for (let b of activeBullets) {
+        b.update(delta);
+        b.draw();
+      }
+
+      // Update and draw particles
+      particles = particles.filter(p => {
+        p.update(delta);
+        p.draw();
+        return p.life > 0;
+      });
+
+      // Bullet collision
+      activeBullets = activeBullets.filter(b => {
+        for (let i = 0; i < words.length; i++) {
+          let w = words[i];
+          const dist = Math.sqrt((b.x - w.x) ** 2 + (b.y - w.y) ** 2);
+          if (dist < 40 && b.word === w.word) {
+            // Hit!
+            words.splice(i, 1);
+            combo++;
+            addScore(10);
+            hitSound();
+
+            // Create explosion particles
+            for (let j = 0; j < 15; j++) {
+              particles.push(new Particle(w.x, w.y, ["#0f0", "#0ff", "#ff0"][Math.floor(Math.random() * 3)]));
+            }
+
+            // Update target word if this was it
+            if (targetWord && targetWord.word === w.word) {
+              targetWord = null;
+            }
+
+            return false;
+          }
+        }
+        return b.y > -50 && b.x > -50 && b.x < canvas.width + 50;
+      });
+
+      ctx.restore();
+
+      // Level complete
+      if (words.length === 0) {
+        level++;
+        if (level >= levels.length) {
+          winGame();
+          return;
+        }
+        spawnLevel();
+      }
+
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      document.getElementById('startScreen').classList.add('hidden');
+      level = 0;
+      lives = 5;
+      score = 0;
+      combo = 0;
+      typed = "";
+      gameState = "playing";
+      targetWord = null;
+      spawnLevel();
+      updateHUD();
+      lastFrame = performance.now();
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function pauseGame() {
+      if (gameState === "playing") {
+        gameState = "paused";
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      if (gameState === "paused") {
+        gameState = "playing";
+        document.getElementById('pauseScreen').classList.add('hidden');
+        lastFrame = performance.now();
+        animationId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function gameOver() {
+      gameState = "gameOver";
+      gameOverSound();
+      document.getElementById('finalScore').textContent = "Final Score: " + score;
+      document.getElementById('finalLevel').textContent = level + 1;
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+
+      // Focus on name input
+      setTimeout(() => {
+        document.getElementById('gameOverNameInput').focus();
+      }, 100);
+    }
+
+    function winGame() {
+      gameState = "win";
+      hitSound();
+      setTimeout(() => hitSound(), 100);
+      setTimeout(() => hitSound(), 200);
+      document.getElementById('winScore').textContent = "Final Score: " + score;
+      document.getElementById('winScreen').classList.remove('hidden');
+
+      // Focus on name input
+      setTimeout(() => {
+        document.getElementById('winNameInput').focus();
+      }, 100);
+    }
+
+    function restartGame() {
+      // Hide all screens
+      document.getElementById('pauseScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      document.getElementById('winScreen').classList.add('hidden');
+
+      // Reset everything
+      words = [];
+      activeBullets = [];
+      particles = [];
+      targetWord = null;
+
+      startGame();
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") {
+        if (gameState === "playing") {
+          pauseGame();
+        } else if (gameState === "paused") {
+          resumeGame();
+        }
+        return;
+      }
+
+      if (gameState !== "playing") return;
+
+      if (e.key.length === 1) {
+        typed += e.key;
+      } else if (e.key === "Backspace") {
+        typed = typed.slice(0, -1);
+      } else if (e.key === "Enter") {
+        checkTyped();
+        typed = "";
+      }
+      typedDisplay.textContent = typed;
+      checkPartialMatch();
+    });
+
+    function checkTyped() {
+      const index = words.findIndex(w => w.word === typed.trim());
+      if (index !== -1) {
+        const w = words[index];
+        activeBullets.push(new Bullet(w.x, w.y, w.word));
+        shootSound();
+      }
+    }
+
+    function checkPartialMatch() {
+      targetWord = null;
+      for (let w of words) {
+        if (w.word.startsWith(typed)) {
+          typedDisplay.style.color = "#0f0";
+          targetWord = w; // Set target for aiming line
+          return;
+        }
+      }
+      typedDisplay.style.color = "red";
+    }
+
+    ctx.font = "20px Courier New";
+
+    // Initialize leaderboard on page load
+    displayLeaderboard();
+
+    // Allow Enter key to submit name in game over/win screens
+    document.getElementById('gameOverNameInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveScoreAndExit('gameOver');
+      }
+    });
+
+    document.getElementById('winNameInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveScoreAndExit('win');
+      }
+    });
+  </script>
+</body>
+</html>

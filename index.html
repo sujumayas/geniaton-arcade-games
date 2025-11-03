@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GenAI Games - Mini Game Collection</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: linear-gradient(135deg, #000000 0%, #1a0033 50%, #000000 100%);
+      color: #0f0;
+      min-height: 100vh;
+      padding: 40px 20px;
+      overflow-x: hidden;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+
+    .header h1 {
+      font-size: 56px;
+      text-shadow: 0 0 20px #0f0, 0 0 40px #0f0, 0 0 60px #0f0;
+      margin-bottom: 10px;
+      letter-spacing: 4px;
+    }
+
+    .header p {
+      font-size: 18px;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    @keyframes glow {
+      from { text-shadow: 0 0 20px #0f0, 0 0 40px #0f0; }
+      to { text-shadow: 0 0 30px #0f0, 0 0 60px #0f0, 0 0 80px #0f0; }
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 30px;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .game-card {
+      background: rgba(0, 20, 40, 0.7);
+      border: 2px solid #0ff;
+      border-radius: 10px;
+      padding: 0;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    }
+
+    .game-card:hover {
+      transform: translateY(-10px) scale(1.02);
+      box-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 0 60px rgba(0, 255, 0, 0.5);
+      border-color: #0f0;
+    }
+
+    .game-thumbnail {
+      width: 100%;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Individual game thumbnail styles */
+    .game-thumbnail.parAIchute {
+      background: linear-gradient(180deg, #000 0%, #003300 100%);
+    }
+
+    .game-thumbnail.aiLabEscape {
+      background: linear-gradient(45deg, #001122 0%, #003344 100%);
+    }
+
+    .game-thumbnail.promptOrPlagiarism {
+      background: linear-gradient(135deg, #330033 0%, #660066 100%);
+    }
+
+    .game-thumbnail.genaiKaraoke {
+      background: linear-gradient(to right, #ff00ff 0%, #00ffff 100%);
+    }
+
+    .game-thumbnail.promptJenga {
+      background: linear-gradient(180deg, #332200 0%, #664400 100%);
+    }
+
+    .game-thumbnail.biasBugHunt {
+      background: linear-gradient(45deg, #330000 0%, #660000 100%);
+    }
+
+    .game-thumbnail.dreamDesigner {
+      background: radial-gradient(circle, #ff00ff 0%, #4b0082 100%);
+    }
+
+    .game-thumbnail.aiZooTycoon {
+      background: linear-gradient(135deg, #003300 0%, #006600 50%, #009900 100%);
+    }
+
+    .game-thumbnail.trolleyPrompt {
+      background: linear-gradient(90deg, #ffcc00 0%, #ff6600 100%);
+    }
+
+    .game-thumbnail.llmOlympics {
+      background: linear-gradient(135deg, #ff0000 0%, #00ff00 25%, #0000ff 50%, #ffff00 75%, #ff00ff 100%);
+    }
+
+    .game-info {
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    .game-card h2 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    .game-card p {
+      font-size: 14px;
+      color: #0f0;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .game-card .duration {
+      font-size: 12px;
+      color: #f0f;
+      text-shadow: 0 0 5px #f0f;
+    }
+
+    .icon-animation {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 80px;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 36px;
+      }
+      .games-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🤖 GenAI Games 🎮</h1>
+    <p>A collection of 10 mini-games exploring AI, creativity, and ethics</p>
+  </div>
+
+  <div class="games-grid">
+    <!-- Game 1: Prompt Shooter -->
+    <a href="parAIchute.html" class="game-card">
+      <div class="game-thumbnail parAIchute">
+        <div class="icon-animation">🎯</div>
+      </div>
+      <div class="game-info">
+        <h2>Prompt Shooter</h2>
+        <p>Type GenAI terms to shoot falling words before they hit the ground. Fast-paced typing action!</p>
+        <span class="duration">⏱️ 2-3 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 2: AI Lab Escape -->
+    <a href="aiLabEscape.html" class="game-card">
+      <div class="game-thumbnail aiLabEscape">
+        <div class="icon-animation">🤖</div>
+      </div>
+      <div class="game-info">
+        <h2>AI Lab Escape</h2>
+        <p>Navigate mazes as an AI prototype escaping from a research lab. Race against time!</p>
+        <span class="duration">⏱️ 2-4 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 3: Prompt or Plagiarism? -->
+    <a href="promptOrPlagiarism.html" class="game-card">
+      <div class="game-thumbnail promptOrPlagiarism">
+        <div class="icon-animation">⚖️</div>
+      </div>
+      <div class="game-info">
+        <h2>Prompt or Plagiarism?</h2>
+        <p>Judge whether creative works are AI-generated or human-made. Test your detection skills!</p>
+        <span class="duration">⏱️ 3-5 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 4: GenAI Karaoke -->
+    <a href="genaiKaraoke.html" class="game-card">
+      <div class="game-thumbnail genaiKaraoke">
+        <div class="icon-animation">🎤</div>
+      </div>
+      <div class="game-info">
+        <h2>GenAI Karaoke</h2>
+        <p>Guess the missing words in AI-themed songs. Musical fun with a tech twist!</p>
+        <span class="duration">⏱️ 2-3 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 5: Prompt Jenga -->
+    <a href="promptJenga.html" class="game-card">
+      <div class="game-thumbnail promptJenga">
+        <div class="icon-animation">🏗️</div>
+      </div>
+      <div class="game-info">
+        <h2>Prompt Jenga</h2>
+        <p>Stack and balance prompt blocks without toppling the tower. Physics-based puzzle!</p>
+        <span class="duration">⏱️ 2-3 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 6: Bias Bug Hunt -->
+    <a href="biasBugHunt.html" class="game-card">
+      <div class="game-thumbnail biasBugHunt">
+        <div class="icon-animation">🐛</div>
+      </div>
+      <div class="game-info">
+        <h2>Bias Bug Hunt</h2>
+        <p>Identify and fix biased AI outputs before they cause harm. Whack-a-mole meets debugging!</p>
+        <span class="duration">⏱️ 2-3 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 7: Dream Designer -->
+    <a href="dreamDesigner.html" class="game-card">
+      <div class="game-thumbnail dreamDesigner">
+        <div class="icon-animation">🎨</div>
+      </div>
+      <div class="game-info">
+        <h2>Dream Designer</h2>
+        <p>Create images by crafting the perfect prompts. Explore AI art generation!</p>
+        <span class="duration">⏱️ 3-5 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 8: AI Zoo Tycoon -->
+    <a href="aiZooTycoon.html" class="game-card">
+      <div class="game-thumbnail aiZooTycoon">
+        <div class="icon-animation">🦁</div>
+      </div>
+      <div class="game-info">
+        <h2>AI Zoo Tycoon</h2>
+        <p>Manage a zoo of AI models. Balance performance, cost, and visitor satisfaction!</p>
+        <span class="duration">⏱️ 3-4 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 9: The Trolley Prompt -->
+    <a href="trolleyPrompt.html" class="game-card">
+      <div class="game-thumbnail trolleyPrompt">
+        <div class="icon-animation">🚋</div>
+      </div>
+      <div class="game-info">
+        <h2>The Trolley Prompt</h2>
+        <p>Make ethical decisions about AI behavior. Your choices shape the future!</p>
+        <span class="duration">⏱️ 3-5 minutes</span>
+      </div>
+    </a>
+
+    <!-- Game 10: LLM Olympics -->
+    <a href="llmOlympics.html" class="game-card">
+      <div class="game-thumbnail llmOlympics">
+        <div class="icon-animation">🏅</div>
+      </div>
+      <div class="game-info">
+        <h2>LLM Olympics</h2>
+        <p>Compete in multiple AI-themed minigame challenges. Variety pack of fun!</p>
+        <span class="duration">⏱️ 4-5 minutes</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="footer">
+    <p>🤖 Built with HTML, CSS, and JavaScript | No frameworks required 🎮</p>
+    <p style="margin-top: 10px;">GenIAton Games Collection - Explore AI through play!</p>
+  </div>
+</body>
+</html>

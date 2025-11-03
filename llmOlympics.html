@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LLM Olympics</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      background: linear-gradient(45deg, #ff6b35, #f7931e, #ffd23f, #06ffa5, #1cb5e0, #002eff);
+      background-size: 400% 400%;
+      animation: olympicColors 8s ease-in-out infinite;
+      color: #fff;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    @keyframes olympicColors {
+      0% { background-position: 0% 50%; }
+      25% { background-position: 100% 50%; }
+      50% { background-position: 100% 100%; }
+      75% { background-position: 0% 100%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    #gameContainer {
+      width: 1000px;
+      height: 700px;
+      border: 3px solid gold;
+      border-radius: 20px;
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.5);
+      background: rgba(0, 0, 0, 0.85);
+      position: relative;
+      backdrop-filter: blur(15px);
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+
+    .screen h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 30px gold;
+      text-align: center;
+      background: linear-gradient(45deg, gold, #ffeb3b, gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 2s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.3); }
+    }
+
+    .screen p {
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      max-width: 700px;
+      line-height: 1.6;
+    }
+
+    .screen button {
+      padding: 15px 30px;
+      background: linear-gradient(45deg, gold, #ffeb3b);
+      border: none;
+      color: #000;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .screen button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #gameArea {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #olympicHeader {
+      height: 100px;
+      background: rgba(0, 0, 0, 0.7);
+      border-bottom: 2px solid gold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 30px;
+    }
+
+    #eventArea {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 30px;
+    }
+
+    #eventTitle {
+      font-size: 32px;
+      text-align: center;
+      color: gold;
+      text-shadow: 0 0 15px gold;
+      margin-bottom: 20px;
+    }
+
+    #eventDescription {
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+
+    #challengeArea {
+      flex: 1;
+      background: rgba(255, 215, 0, 0.1);
+      border: 2px solid gold;
+      border-radius: 15px;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .challenge-content {
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    .prompt-display {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid gold;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .input-area {
+      margin: 20px 0;
+    }
+
+    .challenge-input {
+      width: 100%;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid gold;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      resize: none;
+    }
+
+    .challenge-input:focus {
+      outline: none;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    }
+
+    .timer-display {
+      font-size: 48px;
+      color: gold;
+      font-weight: bold;
+      text-shadow: 0 0 20px gold;
+      margin: 20px 0;
+    }
+
+    .timer-display.warning {
+      color: #ff4757;
+      animation: pulse 1s infinite;
+    }
+
+    .multiple-choice {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .choice-btn {
+      padding: 15px;
+      background: rgba(255, 215, 0, 0.1);
+      border: 2px solid gold;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s;
+    }
+
+    .choice-btn:hover {
+      background: rgba(255, 215, 0, 0.3);
+      box-shadow: 0 0 10px gold;
+    }
+
+    .choice-btn.selected {
+      background: gold;
+      color: #000;
+      font-weight: bold;
+    }
+
+    .submit-btn {
+      padding: 15px 40px;
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      border: none;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+
+    .submit-btn:hover {
+      background: linear-gradient(45deg, #45a049, #4CAF50);
+      box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    }
+
+    .submit-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+
+    .scoreboard {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid gold;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+
+    .medal {
+      font-size: 24px;
+      margin: 0 5px;
+    }
+
+    .leaderboard {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+    }
+
+    .competitor {
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid gold;
+    }
+
+    .competitor-name {
+      font-weight: bold;
+      color: gold;
+    }
+
+    .competitor-score {
+      font-size: 20px;
+      margin: 5px 0;
+    }
+
+    .event-complete {
+      background: rgba(76, 175, 80, 0.2);
+      border: 2px solid #4CAF50;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .next-event-btn {
+      padding: 15px 30px;
+      background: linear-gradient(45deg, #9c27b0, #673ab7);
+      border: none;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 10px;
+      margin: 15px 0;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, gold, #ffeb3b);
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="startScreen" class="screen">
+      <h1>🏅 LLM OLYMPICS</h1>
+      <p>🎯 Welcome to the ultimate AI competition arena!</p>
+      <p>Compete in 5 lightning-fast mini-games that test your LLM training skills:</p>
+      <p>📝 <strong>Translation Sprint</strong> - Translate sentences at lightning speed</p>
+      <p>🖼️ <strong>Image Caption Race</strong> - Describe images in seconds</p>
+      <p>😂 <strong>Joke Generator</strong> - Create the funniest AI humor</p>
+      <p>📊 <strong>Data Summarizer</strong> - Condense complex information</p>
+      <p>🎭 <strong>Style Mimic</strong> - Copy famous writing styles</p>
+      <p>Compete for the gold medal and become the LLM Olympic Champion!</p>
+      <button onclick="startGame()">🚀 START OLYMPICS</button>
+      <a href="index.html" style="padding: 15px 30px; background: transparent; border: 2px solid #f0f; color: #f0f; font-family: 'Courier New', Courier, monospace; font-size: 16px; cursor: pointer; margin: 10px; transition: all 0.3s; text-decoration: none; display: inline-block;">← ALL GAMES</a>
+    </div>
+
+    <div id="pauseScreen" class="screen hidden">
+      <h1>⏸️ OLYMPICS PAUSED</h1>
+      <p>Competition temporarily suspended...</p>
+      <button onclick="resumeGame()">RESUME</button>
+      <button onclick="showStart()">RESTART</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h1>🏆 OLYMPICS COMPLETE!</h1>
+      <div class="leaderboard">
+        <div class="competitor">
+          <div class="medal">🥇</div>
+          <div class="competitor-name">YOU</div>
+          <div class="competitor-score" id="finalUserScore">0</div>
+        </div>
+        <div class="competitor">
+          <div class="medal">🥈</div>
+          <div class="competitor-name">GPT-4</div>
+          <div class="competitor-score" id="gpt4Score">0</div>
+        </div>
+        <div class="competitor">
+          <div class="medal">🥉</div>
+          <div class="competitor-name">Claude</div>
+          <div class="competitor-score" id="claudeScore">0</div>
+        </div>
+      </div>
+      <p id="olympicResult"></p>
+      <button onclick="showStart()">🎯 COMPETE AGAIN</button>
+    </div>
+
+    <div id="gameArea" class="hidden">
+      <div id="olympicHeader">
+        <div>
+          <span>Event: <span id="eventNumber">1</span>/5</span>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 20%"></div>
+          </div>
+        </div>
+        <div class="timer-display" id="eventTimer">10</div>
+        <div>Score: <span id="currentScore">0</span> 🏅</div>
+      </div>
+
+      <div id="eventArea">
+        <div id="eventTitle">Loading Event...</div>
+        <div id="eventDescription">Preparing challenge...</div>
+
+        <div id="challengeArea">
+          <div class="challenge-content" id="challengeContent">
+            <!-- Event-specific content will be loaded here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gameState = 'start';
+    let currentEvent = 1;
+    let eventTimer = null;
+    let timeLeft = 10;
+    let isPaused = false;
+    let totalScore = 0;
+    let currentAnswer = '';
+    let eventStartTime = 0;
+
+    const events = [
+      {
+        title: "📝 Translation Sprint",
+        description: "Translate this sentence from English to Spanish as quickly and accurately as possible!",
+        type: "input",
+        time: 15,
+        challenge: "The artificial intelligence model is learning to understand human language patterns.",
+        correct: "El modelo de inteligencia artificial está aprendiendo a entender los patrones del lenguaje humano.",
+        scoring: "accuracy"
+      },
+      {
+        title: "🖼️ Image Caption Race",
+        description: "Describe this image in one creative sentence!",
+        type: "input",
+        time: 12,
+        challenge: "🌅🏔️🦅 [Image: A majestic eagle soaring over snow-capped mountains at sunrise]",
+        keywords: ["eagle", "mountain", "sunrise", "soaring", "majestic", "snow"],
+        scoring: "keywords"
+      },
+      {
+        title: "😂 Joke Generator",
+        description: "Create a funny joke about AI in 10 seconds!",
+        type: "input",
+        time: 10,
+        challenge: "Make an AI-themed joke that would make humans laugh!",
+        keywords: ["ai", "robot", "computer", "algorithm", "machine", "learning"],
+        scoring: "creativity"
+      },
+      {
+        title: "📊 Data Summarizer",
+        description: "Summarize this complex data in ONE sentence!",
+        type: "input",
+        time: 18,
+        challenge: "In 2023, global AI investment reached $97.2 billion, with machine learning accounting for 68% of funding, computer vision 18%, natural language processing 12%, and robotics 2%. The top three investing countries were USA (45%), China (23%), and UK (8%).",
+        keywords: ["97.2 billion", "machine learning", "68%", "USA", "China", "2023"],
+        scoring: "keywords"
+      },
+      {
+        title: "🎭 Style Mimic",
+        description: "Write like Shakespeare about modern technology!",
+        type: "input",
+        time: 20,
+        challenge: "Describe a smartphone in Shakespeare's writing style",
+        keywords: ["thou", "thee", "thy", "hath", "doth", "wherefore", "device", "magic"],
+        scoring: "style"
+      }
+    ];
+
+    function startGame() {
+      hideAllScreens();
+      document.getElementById('gameArea').classList.remove('hidden');
+      gameState = 'playing';
+      currentEvent = 1;
+      totalScore = 0;
+      startEvent();
+    }
+
+    function pauseGame() {
+      if (gameState === 'playing') {
+        isPaused = true;
+        clearInterval(eventTimer);
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      isPaused = false;
+      document.getElementById('pauseScreen').classList.add('hidden');
+      startEventTimer();
+    }
+
+    function showStart() {
+      hideAllScreens();
+      gameState = 'start';
+      document.getElementById('startScreen').classList.remove('hidden');
+      clearInterval(eventTimer);
+    }
+
+    function hideAllScreens() {
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+      });
+    }
+
+    function startEvent() {
+      if (currentEvent > 5) {
+        completeOlympics();
+        return;
+      }
+
+      const event = events[currentEvent - 1];
+
+      document.getElementById('eventNumber').textContent = currentEvent;
+      document.getElementById('eventTitle').textContent = event.title;
+      document.getElementById('eventDescription').textContent = event.description;
+
+      const progressPercent = (currentEvent / 5) * 100;
+      document.getElementById('progressFill').style.width = progressPercent + '%';
+
+      setupEventChallenge(event);
+
+      timeLeft = event.time;
+      eventStartTime = Date.now();
+      startEventTimer();
+      updateUI();
+    }
+
+    function setupEventChallenge(event) {
+      const content = document.getElementById('challengeContent');
+
+      content.innerHTML = `
+        <div class="prompt-display">${event.challenge}</div>
+        <div class="input-area">
+          <textarea class="challenge-input" id="answerInput"
+                   placeholder="Type your response here..."
+                   rows="4" maxlength="200"></textarea>
+        </div>
+        <button class="submit-btn" onclick="submitAnswer()">SUBMIT</button>
+      `;
+
+      document.getElementById('answerInput').focus();
+    }
+
+    function startEventTimer() {
+      clearInterval(eventTimer);
+      eventTimer = setInterval(() => {
+        if (!isPaused) {
+          timeLeft--;
+          updateTimer();
+
+          if (timeLeft <= 0) {
+            timeUp();
+          }
+        }
+      }, 1000);
+    }
+
+    function updateTimer() {
+      const timerElement = document.getElementById('eventTimer');
+      timerElement.textContent = timeLeft;
+
+      if (timeLeft <= 5) {
+        timerElement.classList.add('warning');
+      } else {
+        timerElement.classList.remove('warning');
+      }
+    }
+
+    function timeUp() {
+      clearInterval(eventTimer);
+      submitAnswer();
+    }
+
+    function submitAnswer() {
+      const answer = document.getElementById('answerInput').value.trim();
+      const event = events[currentEvent - 1];
+
+      clearInterval(eventTimer);
+
+      const score = calculateEventScore(answer, event);
+      totalScore += score;
+
+      showEventResults(answer, score, event);
+    }
+
+    function calculateEventScore(answer, event) {
+      let score = 0;
+      const timeBonus = Math.max(0, timeLeft);
+      const speedMultiplier = Math.min(2, (Date.now() - eventStartTime) / 1000 / event.time);
+
+      switch (event.scoring) {
+        case "accuracy":
+          // For translation, check similarity
+          const similarity = calculateSimilarity(answer.toLowerCase(), event.correct.toLowerCase());
+          score = Math.round(similarity * 50) + timeBonus;
+          break;
+
+        case "keywords":
+          // Count matching keywords
+          const foundKeywords = event.keywords.filter(keyword =>
+            answer.toLowerCase().includes(keyword.toLowerCase())
+          );
+          score = foundKeywords.length * 8 + timeBonus;
+          break;
+
+        case "creativity":
+          // Score based on length, humor indicators, and keywords
+          score += Math.min(answer.length * 0.3, 20);
+          if (answer.includes('?') || answer.includes('!')) score += 5;
+          event.keywords.forEach(keyword => {
+            if (answer.toLowerCase().includes(keyword)) score += 3;
+          });
+          score += timeBonus;
+          break;
+
+        case "style":
+          // Check for Shakespeare-style words and structure
+          score += Math.min(answer.length * 0.2, 15);
+          event.keywords.forEach(keyword => {
+            if (answer.toLowerCase().includes(keyword)) score += 4;
+          });
+          score += timeBonus;
+          break;
+      }
+
+      return Math.round(Math.max(0, Math.min(score, 100)));
+    }
+
+    function calculateSimilarity(str1, str2) {
+      // Simple similarity calculation
+      const words1 = str1.split(' ');
+      const words2 = str2.split(' ');
+      let matches = 0;
+
+      words1.forEach(word => {
+        if (words2.includes(word)) matches++;
+      });
+
+      return matches / Math.max(words1.length, words2.length);
+    }
+
+    function showEventResults(answer, score, event) {
+      const content = document.getElementById('challengeContent');
+
+      let feedback = '';
+      if (score >= 80) feedback = '🏆 AMAZING! Olympic-level performance!';
+      else if (score >= 60) feedback = '🥈 Great job! Strong execution!';
+      else if (score >= 40) feedback = '🥉 Good effort! Room for improvement!';
+      else feedback = '📚 Keep training! You\'ll get better!';
+
+      content.innerHTML = `
+        <div class="event-complete">
+          <h3>Event ${currentEvent} Complete!</h3>
+          <p><strong>Your Response:</strong> "${answer}"</p>
+          <p><strong>Score:</strong> ${score}/100</p>
+          <p>${feedback}</p>
+          <button class="next-event-btn" onclick="nextEvent()">
+            ${currentEvent < 5 ? 'NEXT EVENT' : 'VIEW FINAL RESULTS'}
+          </button>
+        </div>
+      `;
+    }
+
+    function nextEvent() {
+      currentEvent++;
+      startEvent();
+    }
+
+    function completeOlympics() {
+      gameState = 'complete';
+      hideAllScreens();
+
+      // Generate competitor scores
+      const gpt4Score = Math.floor(Math.random() * 50) + 350; // 350-400
+      const claudeScore = Math.floor(Math.random() * 50) + 320; // 320-370
+
+      document.getElementById('finalUserScore').textContent = totalScore;
+      document.getElementById('gpt4Score').textContent = gpt4Score;
+      document.getElementById('claudeScore').textContent = claudeScore;
+
+      let result = '';
+      if (totalScore > gpt4Score && totalScore > claudeScore) {
+        result = '🏆 GOLD MEDAL! You are the LLM Olympic Champion!';
+      } else if (totalScore > claudeScore || (totalScore > gpt4Score - 50 && totalScore > claudeScore)) {
+        result = '🥈 SILVER MEDAL! Excellent performance!';
+      } else if (totalScore > 200) {
+        result = '🥉 BRONZE MEDAL! Great effort!';
+      } else {
+        result = '🏅 PARTICIPATION MEDAL! Keep training for next Olympics!';
+      }
+
+      document.getElementById('olympicResult').textContent = result;
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+    }
+
+    function updateUI() {
+      document.getElementById('currentScore').textContent = totalScore;
+    }
+
+    // Event listeners
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (gameState === 'playing' && !isPaused) {
+          pauseGame();
+        } else if (isPaused) {
+          resumeGame();
+        }
+      } else if (e.key === 'Enter' && e.ctrlKey && gameState === 'playing') {
+        submitAnswer();
+      }
+    });
+
+    // Auto-focus and submission handling
+    document.addEventListener('click', (e) => {
+      if (gameState === 'playing' && e.target.id === 'answerInput') {
+        e.target.focus();
+      }
+    });
+  </script>
+</body>
+</html>
