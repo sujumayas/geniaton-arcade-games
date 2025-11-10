@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bug Catcher</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      background: #000;
+      color: #0f0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    #gameContainer {
+      width: 900px;
+      height: 600px;
+      border: 2px solid #0f0;
+      box-shadow: 0 0 20px #0f0;
+      position: relative;
+      background: linear-gradient(180deg, #000814 0%, #001122 100%);
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
+      z-index: 10;
+      text-shadow: 0 0 10px #0f0;
+      font-size: 18px;
+    }
+
+    #score {
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    #bugs {
+      color: #f0f;
+      text-shadow: 0 0 10px #f0f;
+    }
+
+    #distance {
+      color: #ff0;
+      text-shadow: 0 0 10px #ff0;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 20;
+    }
+
+    .screen h1 {
+      font-size: 52px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 25px #0f0;
+      color: #0f0;
+    }
+
+    .screen p {
+      font-size: 18px;
+      text-align: center;
+      margin: 10px 0;
+      max-width: 700px;
+      line-height: 1.6;
+    }
+
+    .screen button, .screen a {
+      padding: 15px 30px;
+      background: transparent;
+      border: 2px solid #0f0;
+      color: #0f0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .screen button:hover, .screen a:hover {
+      background: #0f0;
+      color: #000;
+      box-shadow: 0 0 15px #0f0;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #leaderboard {
+      margin-top: 25px;
+      padding: 20px;
+      border: 2px solid #0f0;
+      border-radius: 10px;
+      background: rgba(0, 255, 0, 0.05);
+      max-width: 600px;
+      width: 90%;
+    }
+
+    #leaderboard h2 {
+      font-size: 28px;
+      margin-bottom: 15px;
+      color: #0ff;
+      text-shadow: 0 0 15px #0ff;
+      text-align: center;
+    }
+
+    .leaderboard-entry {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 15px;
+      margin: 5px 0;
+      background: rgba(0, 255, 0, 0.1);
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    .leaderboard-entry.top3 {
+      background: rgba(0, 255, 255, 0.2);
+      font-weight: bold;
+    }
+
+    .leaderboard-rank {
+      color: #ff0;
+      min-width: 40px;
+      text-shadow: 0 0 8px #ff0;
+    }
+
+    .leaderboard-name {
+      flex: 1;
+      text-align: left;
+      margin: 0 15px;
+    }
+
+    .leaderboard-score {
+      color: #0ff;
+      text-shadow: 0 0 8px #0ff;
+      min-width: 100px;
+      text-align: right;
+    }
+
+    .name-input {
+      padding: 12px 20px;
+      background: rgba(0, 255, 0, 0.1);
+      border: 2px solid #0f0;
+      color: #0f0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 20px;
+      text-align: center;
+      margin: 15px 0;
+      width: 300px;
+      outline: none;
+      text-transform: uppercase;
+    }
+
+    .name-input::placeholder {
+      color: rgba(0, 255, 0, 0.5);
+    }
+
+    .name-input:focus {
+      box-shadow: 0 0 15px #0f0;
+    }
+
+    .highlight {
+      color: #f0f;
+      text-shadow: 0 0 10px #f0f;
+      font-weight: bold;
+    }
+
+    .warning {
+      color: #ff0;
+      text-shadow: 0 0 10px #ff0;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+
+    #finalStats {
+      margin: 20px 0;
+      padding: 15px;
+      border: 2px solid #0ff;
+      border-radius: 8px;
+      background: rgba(0, 255, 255, 0.1);
+    }
+
+    #finalStats p {
+      margin: 8px 0;
+      font-size: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="900" height="600"></canvas>
+
+    <div id="hud">
+      <div id="score">Score: 0</div>
+      <div id="bugs">🐛 Bugs: 0</div>
+      <div id="distance">Distance: 0m</div>
+    </div>
+
+    <div id="startScreen" class="screen">
+      <h1>🐛 BUG CATCHER 🐛</h1>
+      <p>You're a developer in <span class="highlight">deep work mode</span>!</p>
+      <p>Jump to <span class="highlight">avoid meetings</span> that break your focus.</p>
+      <p>Catch <span class="highlight">bugs</span> flying by to increase your score!</p>
+      <p><strong>Controls:</strong> Press <span class="highlight">SPACE</span> or <span class="highlight">UP ARROW</span> to jump | <span class="highlight">ESC</span> to pause</p>
+      <p class="warning">⚠️ Speed increases as you progress! How long can you survive?</p>
+      <button onclick="startGame()">START DEEP WORK</button>
+      <a href="index.html">← ALL GAMES</a>
+      <div id="leaderboard">
+        <h2>🏆 TOP 10 LEADERBOARD</h2>
+        <div id="leaderboardList"></div>
+      </div>
+    </div>
+
+    <div id="pauseScreen" class="screen hidden">
+      <h1>⏸️ PAUSED</h1>
+      <p>Taking a break from deep work...</p>
+      <p>Press <span class="highlight">ESC</span> to resume</p>
+      <button onclick="resumeGame()">RESUME</button>
+      <button onclick="restartGame()">RESTART</button>
+      <a href="index.html">← ALL GAMES</a>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h1>💥 FOCUS BROKEN!</h1>
+      <p>A meeting caught you! Your deep work session has ended.</p>
+      <div id="finalStats">
+        <p>Final Score: <span id="finalScore" class="highlight">0</span></p>
+        <p>Bugs Caught: <span id="finalBugs" class="highlight">0</span> 🐛</p>
+        <p>Distance: <span id="finalDistance" class="highlight">0</span>m</p>
+      </div>
+      <p>Enter your name for the leaderboard:</p>
+      <input type="text" id="nameInput" class="name-input" placeholder="ENTER NAME" maxlength="20">
+      <button onclick="saveScoreAndExit()">SAVE SCORE</button>
+      <button onclick="exitToMenu()">SKIP</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Game state
+    let gameState = 'start'; // start, playing, paused, gameOver
+    let animationId = null;
+    let lastFrame = 0;
+
+    // Game variables
+    let score = 0;
+    let bugsCaught = 0;
+    let distance = 0;
+    let gameSpeed = 4;
+    let gravity = 0.6;
+    let jumpStrength = 13;
+    let isJumping = false;
+    let screenShake = 0;
+
+    // Player
+    const player = {
+      x: 100,
+      y: 0,
+      width: 40,
+      height: 50,
+      velocityY: 0,
+      isOnGround: false
+    };
+
+    // Ground level
+    const groundY = canvas.height - 80;
+
+    // Obstacles (meetings)
+    let obstacles = [];
+    let obstacleTimer = 0;
+    let obstacleInterval = 2.0; // seconds
+
+    // Collectibles (bugs)
+    let bugs = [];
+    let bugTimer = 0;
+    let bugInterval = 1.5; // seconds
+
+    // Particles
+    let particles = [];
+
+    // Audio context
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Sound effects
+    function playSound(frequency, duration, type = 'sine', volume = 0.3) {
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = type;
+
+      gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + duration);
+    }
+
+    function jumpSound() {
+      playSound(600, 0.1, 'square', 0.2);
+      setTimeout(() => playSound(800, 0.08, 'square', 0.15), 50);
+    }
+
+    function collectSound() {
+      playSound(800, 0.1, 'sine', 0.25);
+      setTimeout(() => playSound(1000, 0.1, 'sine', 0.25), 50);
+      setTimeout(() => playSound(1200, 0.15, 'sine', 0.25), 100);
+    }
+
+    function crashSound() {
+      playSound(150, 0.3, 'sawtooth', 0.4);
+      setTimeout(() => playSound(100, 0.4, 'sawtooth', 0.4), 200);
+    }
+
+    // Particle class
+    class Particle {
+      constructor(x, y, color, size = 3) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 6;
+        this.vy = (Math.random() - 0.5) * 6 - 2;
+        this.life = 1;
+        this.color = color;
+        this.size = size;
+      }
+
+      update(delta) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.3; // gravity
+        this.life -= delta * 1.5;
+      }
+
+      draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Obstacle class
+    class Obstacle {
+      constructor() {
+        this.x = canvas.width;
+        this.y = groundY - 60;
+        this.width = 70;
+        this.height = 60;
+        this.passed = false;
+      }
+
+      update() {
+        this.x -= gameSpeed;
+      }
+
+      draw() {
+        // Draw meeting icon/box
+        ctx.fillStyle = '#f00';
+        ctx.shadowColor = '#f00';
+        ctx.shadowBlur = 15;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.shadowBlur = 0;
+
+        // Draw text
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Courier New';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('MEETING', this.x + this.width / 2, this.y + 20);
+        ctx.fillText('📅', this.x + this.width / 2, this.y + 40);
+      }
+
+      collidesWith(player) {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+      }
+    }
+
+    // Bug class
+    class Bug {
+      constructor() {
+        this.x = canvas.width;
+        this.y = groundY - Math.random() * 200 - 100; // Random height
+        this.width = 30;
+        this.height = 30;
+        this.collected = false;
+        this.wobble = Math.random() * Math.PI * 2;
+      }
+
+      update() {
+        this.x -= gameSpeed;
+        this.wobble += 0.1;
+      }
+
+      draw() {
+        const wobbleY = Math.sin(this.wobble) * 5;
+
+        ctx.shadowColor = '#f0f';
+        ctx.shadowBlur = 20;
+        ctx.font = '30px Courier New';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🐛', this.x + this.width / 2, this.y + this.height / 2 + wobbleY);
+        ctx.shadowBlur = 0;
+      }
+
+      collidesWith(player) {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+      }
+    }
+
+    // Leaderboard functions
+    function loadLeaderboard() {
+      const data = localStorage.getItem('bugCatcherLeaderboard');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveLeaderboard(leaderboard) {
+      localStorage.setItem('bugCatcherLeaderboard', JSON.stringify(leaderboard));
+    }
+
+    function addScoreToLeaderboard(name, score, bugs, distance) {
+      const leaderboard = loadLeaderboard();
+
+      leaderboard.push({
+        name: name.trim().toUpperCase() || 'ANONYMOUS',
+        score: score,
+        bugs: bugs,
+        distance: distance,
+        date: new Date().toLocaleDateString()
+      });
+
+      // Sort by score descending
+      leaderboard.sort((a, b) => b.score - a.score);
+
+      // Keep only top 10
+      const top10 = leaderboard.slice(0, 10);
+      saveLeaderboard(top10);
+    }
+
+    function displayLeaderboard() {
+      const leaderboard = loadLeaderboard();
+      const listElement = document.getElementById('leaderboardList');
+
+      if (leaderboard.length === 0) {
+        listElement.innerHTML = '<p style="text-align: center; color: #0f0; opacity: 0.5;">No scores yet. Be the first!</p>';
+        return;
+      }
+
+      listElement.innerHTML = leaderboard.map((entry, index) => {
+        const rank = index + 1;
+        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+        const topClass = rank <= 3 ? 'top3' : '';
+
+        return `
+          <div class="leaderboard-entry ${topClass}">
+            <span class="leaderboard-rank">${medal}</span>
+            <span class="leaderboard-name">${entry.name}</span>
+            <span class="leaderboard-score">${entry.score} pts</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function saveScoreAndExit() {
+      const nameInput = document.getElementById('nameInput');
+      const name = nameInput.value.trim();
+
+      addScoreToLeaderboard(name, score, bugsCaught, distance);
+      displayLeaderboard();
+      nameInput.value = '';
+      exitToMenu();
+    }
+
+    function exitToMenu() {
+      // Hide all screens
+      document.getElementById('pauseScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+
+      // Show start screen
+      document.getElementById('startScreen').classList.remove('hidden');
+
+      // Reset game state
+      gameState = 'start';
+      resetGame();
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function resetGame() {
+      score = 0;
+      bugsCaught = 0;
+      distance = 0;
+      gameSpeed = 4;
+      player.y = groundY - player.height;
+      player.velocityY = 0;
+      player.isOnGround = true;
+      isJumping = false;
+      obstacles = [];
+      bugs = [];
+      particles = [];
+      obstacleTimer = 0;
+      bugTimer = 0;
+      screenShake = 0;
+      updateHUD();
+    }
+
+    function updateHUD() {
+      document.getElementById('score').textContent = 'Score: ' + score;
+      document.getElementById('bugs').textContent = '🐛 Bugs: ' + bugsCaught;
+      document.getElementById('distance').textContent = 'Distance: ' + Math.floor(distance) + 'm';
+    }
+
+    function jump() {
+      if (player.isOnGround && gameState === 'playing') {
+        player.velocityY = -jumpStrength;
+        player.isOnGround = false;
+        isJumping = true;
+        jumpSound();
+      }
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = '#0ff';
+      ctx.shadowColor = '#0ff';
+      ctx.shadowBlur = 15;
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+      ctx.shadowBlur = 0;
+
+      // Draw developer symbol
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 20px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('</>', player.x + player.width / 2, player.y + player.height / 2);
+    }
+
+    function drawGround() {
+      // Ground line
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#0f0';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(0, groundY);
+      ctx.lineTo(canvas.width, groundY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Grid pattern on ground
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+      ctx.lineWidth = 1;
+      const offset = (distance * gameSpeed) % 40;
+      for (let i = -offset; i < canvas.width; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(i, groundY);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+    }
+
+    function drawBackground() {
+      // Scrolling grid lines
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.1)';
+      ctx.lineWidth = 1;
+      const offset = (distance * gameSpeed) % 50;
+
+      for (let i = -offset; i < canvas.width; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+    }
+
+    function gameLoop(timestamp) {
+      if (gameState !== 'playing') return;
+
+      let delta = (timestamp - lastFrame) / 1000;
+      lastFrame = timestamp;
+
+      // Cap delta to prevent large jumps
+      if (delta > 0.1) delta = 0.1;
+
+      // Increase speed over time
+      gameSpeed += 0.001;
+
+      // Increase score with distance
+      distance += delta * 10;
+      score = Math.floor(distance * 10 + bugsCaught * 100);
+      updateHUD();
+
+      // Screen shake
+      let offsetX = 0, offsetY = 0;
+      if (screenShake > 0) {
+        offsetX = (Math.random() - 0.5) * screenShake * 30;
+        offsetY = (Math.random() - 0.5) * screenShake * 30;
+        screenShake -= delta * 3;
+      }
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.clearRect(-50, -50, canvas.width + 100, canvas.height + 100);
+
+      // Draw background
+      drawBackground();
+      drawGround();
+
+      // Update player physics
+      if (!player.isOnGround) {
+        player.velocityY += gravity;
+        player.y += player.velocityY;
+
+        if (player.y >= groundY - player.height) {
+          player.y = groundY - player.height;
+          player.velocityY = 0;
+          player.isOnGround = true;
+          isJumping = false;
+        }
+      }
+
+      drawPlayer();
+
+      // Spawn obstacles
+      obstacleTimer += delta;
+      if (obstacleTimer >= obstacleInterval) {
+        obstacles.push(new Obstacle());
+        obstacleTimer = 0;
+        obstacleInterval = Math.max(1.0, 2.0 - (gameSpeed - 4) * 0.1); // Decrease interval as speed increases
+      }
+
+      // Update and draw obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obstacle = obstacles[i];
+        obstacle.update();
+        obstacle.draw();
+
+        // Check collision
+        if (obstacle.collidesWith(player)) {
+          gameOver();
+          return;
+        }
+
+        // Award points for passing obstacle
+        if (!obstacle.passed && obstacle.x + obstacle.width < player.x) {
+          obstacle.passed = true;
+          score += 50;
+        }
+
+        // Remove off-screen obstacles
+        if (obstacle.x + obstacle.width < 0) {
+          obstacles.splice(i, 1);
+        }
+      }
+
+      // Spawn bugs
+      bugTimer += delta;
+      if (bugTimer >= bugInterval) {
+        bugs.push(new Bug());
+        bugTimer = 0;
+        bugInterval = Math.max(0.8, 1.5 - (gameSpeed - 4) * 0.05);
+      }
+
+      // Update and draw bugs
+      for (let i = bugs.length - 1; i >= 0; i--) {
+        const bug = bugs[i];
+        bug.update();
+        bug.draw();
+
+        // Check collision
+        if (!bug.collected && bug.collidesWith(player)) {
+          bug.collected = true;
+          bugsCaught++;
+          score += 100;
+          collectSound();
+
+          // Create particles
+          for (let j = 0; j < 20; j++) {
+            particles.push(new Particle(bug.x + bug.width / 2, bug.y + bug.height / 2, '#f0f', 4));
+          }
+
+          bugs.splice(i, 1);
+        }
+
+        // Remove off-screen bugs
+        if (bug.x + bug.width < 0) {
+          bugs.splice(i, 1);
+        }
+      }
+
+      // Update and draw particles
+      particles = particles.filter(p => {
+        p.update(delta);
+        p.draw();
+        return p.life > 0;
+      });
+
+      ctx.restore();
+
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      document.getElementById('startScreen').classList.add('hidden');
+      resetGame();
+      gameState = 'playing';
+      lastFrame = performance.now();
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function pauseGame() {
+      if (gameState === 'playing') {
+        gameState = 'paused';
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      if (gameState === 'paused') {
+        gameState = 'playing';
+        document.getElementById('pauseScreen').classList.add('hidden');
+        lastFrame = performance.now();
+        animationId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function gameOver() {
+      gameState = 'gameOver';
+      crashSound();
+      screenShake = 1;
+
+      // Create explosion particles
+      for (let i = 0; i < 50; i++) {
+        particles.push(new Particle(player.x + player.width / 2, player.y + player.height / 2, ['#f00', '#ff0', '#f0f'][Math.floor(Math.random() * 3)], 5));
+      }
+
+      // Update final stats
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('finalBugs').textContent = bugsCaught;
+      document.getElementById('finalDistance').textContent = Math.floor(distance);
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+
+      // Focus on name input
+      setTimeout(() => {
+        document.getElementById('nameInput').focus();
+      }, 100);
+    }
+
+    function restartGame() {
+      document.getElementById('pauseScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      startGame();
+    }
+
+    // Event listeners
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (gameState === 'playing') {
+          pauseGame();
+        } else if (gameState === 'paused') {
+          resumeGame();
+        }
+        return;
+      }
+
+      if (e.key === ' ' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        jump();
+      }
+
+      // Submit score with Enter key
+      if (e.key === 'Enter' && gameState === 'gameOver') {
+        saveScoreAndExit();
+      }
+    });
+
+    // Allow Enter key to submit name
+    document.getElementById('nameInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveScoreAndExit();
+      }
+    });
+
+    // Initialize leaderboard on page load
+    displayLeaderboard();
+
+    // Initial player position
+    player.y = groundY - player.height;
+  </script>
+</body>
+</html>
