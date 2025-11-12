@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a curated collection of 10 short, visually beautiful, fun-to-watch mini-games that blend intelligence, GenAI themes, and ease of development. Each game is designed for fast playthroughs (2–5 minutes max), strong visual engagement, and hackathon-style energy.
+This repository contains a collection of short, visually beautiful, fun-to-watch mini-games that blend intelligence, GenAI themes, and ease of development. Each game is designed for fast playthroughs (2–5 minutes max), strong visual engagement, and hackathon-style energy. Currently contains 4 fully implemented games.
 
 ## Architecture
 
@@ -19,18 +19,24 @@ This repository contains a curated collection of 10 short, visually beautiful, f
 
 ### File Organization
 - Game files: `{gameName}.html` in root directory
+- `index.html`: Landing page with grid layout showcasing all games with descriptions and thumbnails
 - All games are currently asset-free (using CSS-only graphics and text)
 - Each game is completely independent and portable
 
 ### Running Games
-To play any game:
+To play games:
 ```bash
-# Option 1: Open directly in browser
-open parAIchute.html
-
-# Option 2: Start local server (for better compatibility)
+# Option 1: View all games through the landing page
+open index.html
+# or with local server:
 python3 -m http.server 8000
-# Then navigate to http://localhost:8000/{gameName}.html
+# Then navigate to http://localhost:8000/
+
+# Option 2: Open individual games directly
+open parAIchute.html
+open bugCatcher.html
+open innovationManiac.html
+open aiLabEscape.html
 ```
 
 No build process, dependencies, or installation required.
@@ -41,27 +47,22 @@ No build process, dependencies, or installation required.
 - **Styling**: Embedded CSS with terminal/hacker aesthetic (black backgrounds, neon colors like #0f0, #f0f, #0ff)
 - **Font**: Courier New for that retro-tech feel
 - **Visual effects**: CSS text-shadow and canvas shadowBlur for glow effects
-- **Variations**: Some games use colorful gradients (llmOlympics.html) vs monochrome terminal (parAIchute.html, aiLabEscape.html)
+- **Variations**: Some games use colorful gradients (`innovationManiac.html`) vs monochrome terminal (`parAIchute.html`, `aiLabEscape.html`)
 
 **Game Architecture Patterns:**
-- **Canvas-based action games** (`parAIchute.html`): Use HTML5 Canvas for sprite-based gameplay with requestAnimationFrame
+- **Canvas-based action games** (`parAIchute.html`, `bugCatcher.html`, `innovationManiac.html`): Use HTML5 Canvas for sprite-based gameplay with requestAnimationFrame
 - **DOM-based puzzle games** (`aiLabEscape.html`): Canvas for visual effects, DOM input for text-based puzzles
-- **Hybrid minigame collections** (`llmOlympics.html`): Multiple game modes with state switching
 - **Game loop**: RequestAnimationFrame for smooth 60fps in all canvas-based games
 - **Input handling**: Direct DOM event listeners (keydown, click, etc.)
+- **Collision detection**: Custom collision logic for platformers and shooters
+- **Parallax scrolling**: Used in vertical scrollers like `innovationManiac.html`
 
-## Game Concepts (All Implemented)
+## Implemented Games
 
-1. **Prompt Shooter** ✅ `parAIchute.html` - Type GenAI terms to shoot falling words
-2. **AI Lab Escape** ✅ `aiLabEscape.html` - Puzzle game with keyword-based solutions
-3. **Prompt or Plagiarism?** ✅ `promptOrPlagiarism.html` - Trivia + judgment game
-4. **GenAI Karaoke** ✅ `genaiKaraoke.html` - Audio + text guessing
-5. **Prompt Jenga** ✅ `promptJenga.html` - Stack & balance game
-6. **Bias Bug Hunt** ✅ `biasBugHunt.html` - Whack-a-mole meets debugging
-7. **Dream Designer** ✅ `dreamDesigner.html` - Image generation + storytelling
-8. **AI Zoo Tycoon** ✅ `aiZooTycoon.html` - Simulation game
-9. **The Trolley Prompt** ✅ `trolleyPrompt.html` - Ethical decision-making
-10. **LLM Olympics** ✅ `llmOlympics.html` - Minigame bundle
+1. **Prompt Shooter** ✅ `parAIchute.html` - Type GenAI terms to shoot falling words (canvas-based typing game)
+2. **AI Lab Escape** ✅ `aiLabEscape.html` - Puzzle game with keyword-based solutions (DOM/canvas hybrid)
+3. **Bug Catcher** ✅ `bugCatcher.html` - Infinite runner where you're a developer avoiding meetings and catching bugs (canvas-based platformer)
+4. **Innovation Maniac** ✅ `innovationManiac.html` - Vertical scrolling shooter piloting through waves of obsolete tech (canvas-based shooter)
 
 ## Development Guidelines
 
@@ -101,6 +102,13 @@ All games should implement consistent state management:
 - Screen divs with `.screen` class and `.hidden` toggle
 - ESC key to pause/resume during gameplay
 - Clear separation between UI screens and game canvas
+- "Back to Menu" link on game over screen returning to `index.html`
+
+### Common UI Components
+- **HUD (Heads-Up Display)**: Absolute positioned div showing score, lives, level/wave info
+- **Neon button styling**: Transparent background with colored borders that glow on hover
+- **Screen overlays**: Full-screen modals (start, pause, game over) with rgba(0,0,0,0.95) backgrounds
+- **Typography**: All text uses text-shadow for glow effect matching the game's theme color
 
 ## Testing
 - Test each game in multiple browsers (Chrome, Firefox, Safari)

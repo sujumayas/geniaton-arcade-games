@@ -1,0 +1,527 @@
+/* ===================================
+   GenAI Arcade Games - Shared Styles
+   =================================== */
+
+/* CSS Custom Properties for Theming */
+:root {
+  --primary-color: #0f0;
+  --secondary-color: #0ff;
+  --accent-color: #f0f;
+  --danger-color: #f00;
+  --warning-color: #ff0;
+  --background-color: #000;
+  --text-color: #0f0;
+
+  --glow-primary: 0 0 10px var(--primary-color);
+  --glow-secondary: 0 0 10px var(--secondary-color);
+  --glow-accent: 0 0 10px var(--accent-color);
+  --glow-strong: 0 0 20px var(--primary-color), 0 0 40px var(--primary-color);
+
+  --font-family: 'Courier New', Courier, monospace;
+  --border-width: 2px;
+  --border-radius: 10px;
+  --transition-speed: 0.3s;
+}
+
+/* ===================================
+   Base Styles
+   =================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background: var(--background-color);
+  color: var(--text-color);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* ===================================
+   Game Container
+   =================================== */
+
+#gameContainer {
+  position: relative;
+  border: var(--border-width) solid var(--primary-color);
+  box-shadow: 0 0 20px var(--primary-color);
+}
+
+/* ===================================
+   Canvas
+   =================================== */
+
+canvas {
+  display: block;
+}
+
+/* ===================================
+   HUD (Heads-Up Display)
+   =================================== */
+
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 10;
+  font-size: 18px;
+  text-shadow: var(--glow-primary);
+  color: var(--primary-color);
+}
+
+#hud > div {
+  text-shadow: inherit;
+}
+
+/* HUD Element Colors */
+#score {
+  color: var(--secondary-color);
+  text-shadow: var(--glow-secondary);
+}
+
+#lives {
+  color: var(--danger-color);
+  text-shadow: 0 0 8px var(--danger-color);
+}
+
+#level,
+#wave,
+#distance,
+#bugs {
+  color: var(--warning-color);
+  text-shadow: 0 0 8px var(--warning-color);
+}
+
+/* ===================================
+   Screens (Start, Pause, GameOver, etc.)
+   =================================== */
+
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 100;
+}
+
+.screen h1 {
+  font-size: 48px;
+  margin-bottom: 20px;
+  text-shadow: var(--glow-strong);
+  color: var(--primary-color);
+}
+
+.screen h2 {
+  font-size: 32px;
+  margin-bottom: 15px;
+  color: var(--secondary-color);
+  text-shadow: var(--glow-secondary);
+}
+
+.screen p {
+  font-size: 18px;
+  text-align: center;
+  margin: 10px 0;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ===================================
+   Buttons and Links
+   =================================== */
+
+.screen button,
+.screen a,
+button,
+a.button {
+  padding: 15px 30px;
+  background: transparent;
+  border: var(--border-width) solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--font-family);
+  font-size: 16px;
+  cursor: pointer;
+  margin: 10px;
+  transition: all var(--transition-speed);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.screen button:hover,
+.screen a:hover,
+button:hover,
+a.button:hover {
+  background: var(--primary-color);
+  color: var(--background-color);
+  box-shadow: 0 0 15px var(--primary-color);
+}
+
+/* ===================================
+   Utility Classes
+   =================================== */
+
+.hidden {
+  display: none !important;
+}
+
+.highlight {
+  color: var(--accent-color);
+  text-shadow: var(--glow-accent);
+  font-weight: bold;
+}
+
+.warning {
+  color: var(--warning-color);
+  text-shadow: 0 0 10px var(--warning-color);
+}
+
+/* ===================================
+   Leaderboard
+   =================================== */
+
+#leaderboard {
+  margin-top: 30px;
+  padding: 20px;
+  border: var(--border-width) solid var(--primary-color);
+  border-radius: var(--border-radius);
+  background: rgba(0, 255, 0, 0.05);
+  max-width: 500px;
+  width: 90%;
+}
+
+#leaderboard h2 {
+  font-size: 24px;
+  margin-bottom: 15px;
+  color: var(--secondary-color);
+  text-shadow: var(--glow-secondary);
+  text-align: center;
+}
+
+.leaderboard-entry {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 15px;
+  margin: 5px 0;
+  background: rgba(0, 255, 0, 0.1);
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.leaderboard-entry.top3 {
+  background: rgba(0, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+.leaderboard-rank {
+  color: var(--warning-color);
+  text-shadow: 0 0 8px var(--warning-color);
+  min-width: 40px;
+}
+
+.leaderboard-name {
+  flex: 1;
+  text-align: left;
+  margin: 0 15px;
+}
+
+.leaderboard-score {
+  color: var(--secondary-color);
+  text-shadow: var(--glow-secondary);
+  min-width: 100px;
+  text-align: right;
+}
+
+/* ===================================
+   Input Fields
+   =================================== */
+
+.name-input,
+input[type="text"] {
+  padding: 10px 15px;
+  background: rgba(0, 255, 0, 0.1);
+  border: var(--border-width) solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--font-family);
+  font-size: 18px;
+  text-align: center;
+  margin: 10px 0;
+  width: 250px;
+  outline: none;
+}
+
+.name-input::placeholder,
+input[type="text"]::placeholder {
+  color: rgba(0, 255, 0, 0.5);
+}
+
+.name-input:focus,
+input[type="text"]:focus {
+  box-shadow: 0 0 15px var(--primary-color);
+}
+
+/* ===================================
+   Score Display
+   =================================== */
+
+#finalScore,
+.final-score {
+  font-size: 36px;
+  color: var(--secondary-color);
+  text-shadow: 0 0 15px var(--secondary-color);
+  margin: 20px 0;
+}
+
+#finalStats,
+.final-stats {
+  margin: 20px 0;
+  padding: 15px;
+  border: var(--border-width) solid var(--secondary-color);
+  border-radius: 8px;
+  background: rgba(0, 255, 255, 0.1);
+}
+
+#finalStats p,
+.final-stats p {
+  margin: 8px 0;
+  font-size: 20px;
+}
+
+/* ===================================
+   Combo Display
+   =================================== */
+
+#combo {
+  color: var(--warning-color);
+  text-shadow: 0 0 8px var(--warning-color);
+  font-size: 24px;
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  z-index: 10;
+}
+
+/* ===================================
+   Typed Word Display (for typing games)
+   =================================== */
+
+#typedWord {
+  position: absolute;
+  bottom: 10px;
+  width: 100%;
+  text-align: center;
+  font-size: 24px;
+  color: var(--primary-color);
+  text-shadow: var(--glow-primary);
+  font-weight: bold;
+  z-index: 10;
+}
+
+/* ===================================
+   Timer Display
+   =================================== */
+
+#timer {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: var(--glow-secondary);
+  color: var(--secondary-color);
+}
+
+/* ===================================
+   Responsive Design
+   =================================== */
+
+@media (max-width: 768px) {
+  #gameContainer {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  .screen h1 {
+    font-size: 36px;
+  }
+
+  .screen p {
+    font-size: 16px;
+    max-width: 90%;
+  }
+
+  #leaderboard {
+    max-width: 90%;
+  }
+}
+
+/* ===================================
+   Index Page Specific Styles
+   =================================== */
+
+body.index-page {
+  background: linear-gradient(135deg, #000000 0%, #1a0033 50%, #000000 100%);
+  padding: 40px 20px;
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  display: block;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 60px;
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.header h1 {
+  font-size: 56px;
+  text-shadow: 0 0 20px #0f0, 0 0 40px #0f0, 0 0 60px #0f0;
+  margin-bottom: 10px;
+  letter-spacing: 4px;
+}
+
+.header p {
+  font-size: 18px;
+  color: #0ff;
+  text-shadow: 0 0 10px #0ff;
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 20px #0f0, 0 0 40px #0f0;
+  }
+  to {
+    text-shadow: 0 0 30px #0f0, 0 0 60px #0f0, 0 0 80px #0f0;
+  }
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.game-card {
+  background: rgba(0, 20, 40, 0.7);
+  border: 2px solid #0ff;
+  border-radius: 10px;
+  padding: 0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.game-card:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 0 60px rgba(0, 255, 0, 0.5);
+  border-color: #0f0;
+}
+
+.game-thumbnail {
+  width: 100%;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.game-thumbnail.parAIchute {
+  background: linear-gradient(180deg, #000 0%, #003300 100%);
+}
+
+.game-thumbnail.aiLabEscape {
+  background: linear-gradient(45deg, #001122 0%, #003344 100%);
+}
+
+.game-thumbnail.bugCatcher {
+  background: linear-gradient(135deg, #330033 0%, #660066 100%);
+}
+
+.game-thumbnail.innovationManiac {
+  background: linear-gradient(to right, #ff00ff 0%, #00ffff 100%);
+}
+
+.game-info {
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.game-card h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #0ff;
+  text-shadow: 0 0 10px #0ff;
+}
+
+.game-card p {
+  font-size: 14px;
+  color: #0f0;
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+.game-card .duration {
+  font-size: 12px;
+  color: #f0f;
+  text-shadow: 0 0 5px #f0f;
+}
+
+.icon-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.footer {
+  text-align: center;
+  margin-top: 80px;
+  color: #0ff;
+  text-shadow: 0 0 10px #0ff;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 36px;
+  }
+
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
+}

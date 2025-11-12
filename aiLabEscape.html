@@ -3,105 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <title>AI Lab Escape</title>
+  <link rel="stylesheet" href="styles.css">
   <style>
-    body {
-      margin: 0;
-      font-family: 'Courier New', Courier, monospace;
-      background: #000;
-      color: #0ff;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+    :root {
+      --primary-color: #0ff;
+      --secondary-color: #0f0;
+      --text-color: #0ff;
+      --glow-primary: 0 0 10px #0ff;
+      --glow-secondary: 0 0 10px #0f0;
+      --glow-strong: 0 0 20px #0ff, 0 0 40px #0ff;
     }
 
     #gameContainer {
       width: 800px;
       height: 600px;
-      border: 2px solid #0ff;
-      box-shadow: 0 0 20px #0ff;
-      position: relative;
       background: linear-gradient(45deg, #001122 0%, #000 100%);
     }
 
     #gameCanvas {
       width: 100%;
       height: 100%;
+    }
+
+    #hud {
       display: block;
+      text-align: left;
     }
 
-    #ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 10;
-      text-shadow: 0 0 10px #0ff;
-    }
-
-    #timer {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 10;
-      font-size: 24px;
-      font-weight: bold;
-      text-shadow: 0 0 10px #0ff;
-      color: #0ff;
-    }
-
-    .screen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.95);
-      z-index: 20;
-    }
-
-    .screen h1 {
-      font-size: 48px;
-      margin-bottom: 20px;
-      text-shadow: 0 0 20px #0ff;
-    }
-
-    .screen p {
-      font-size: 18px;
-      text-align: center;
-      margin: 10px 0;
-      max-width: 600px;
-    }
-
-    .screen button {
-      padding: 15px 30px;
-      background: transparent;
-      border: 2px solid #0ff;
-      color: #0ff;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 16px;
-      cursor: pointer;
-      margin: 10px;
-      transition: all 0.3s;
-    }
-
-    .screen button:hover {
-      background: #0ff;
-      color: #000;
-      box-shadow: 0 0 15px #0ff;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .warning {
-      color: #ff0;
-      text-shadow: 0 0 10px #ff0;
+    #hud > div {
+      margin: 5px 0;
     }
   </style>
 </head>
@@ -109,7 +39,7 @@
   <div id="gameContainer">
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-    <div id="ui">
+    <div id="hud">
       <div>Level: <span id="levelText">1</span></div>
       <div>Use Arrow Keys to Move</div>
     </div>
