@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="styles.css">
   <style>
     #gameContainer {
-      width: 900px;
+      width: 800px;
       height: 600px;
       background: linear-gradient(180deg, #000814 0%, #001122 100%);
     }
@@ -21,20 +21,37 @@
       text-shadow: 0 0 10px #f0f;
     }
 
-    .name-input {
-      width: 300px;
-      font-size: 20px;
-      text-transform: uppercase;
+    .screen {
+      padding: 30px 20px;
     }
 
     .screen h1 {
-      font-size: 52px;
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .screen p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
+
+    .screen button,
+    .screen a {
+      padding: 12px 25px;
+      font-size: 15px;
+      margin: 8px;
+    }
+
+    .name-input {
+      width: 250px;
+      font-size: 18px;
+      text-transform: uppercase;
     }
   </style>
 </head>
 <body>
   <div id="gameContainer">
-    <canvas id="gameCanvas" width="900" height="600"></canvas>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <div id="hud">
       <div id="score">Score: 0</div>
@@ -42,7 +59,7 @@
       <div id="distance">Distance: 0m</div>
     </div>
 
-    <div id="startScreen" class="screen">
+    <div id="startScreen" class="screen with-popup-leaderboard">
       <h1>🐛 BUG CATCHER 🐛</h1>
       <p>You're a developer in <span class="highlight">deep work mode</span>!</p>
       <p>Jump to <span class="highlight">avoid meetings</span> that break your focus.</p>
@@ -50,11 +67,15 @@
       <p><strong>Controls:</strong> Press <span class="highlight">SPACE</span> or <span class="highlight">UP ARROW</span> to jump | <span class="highlight">ESC</span> to pause</p>
       <p class="warning">⚠️ Speed increases as you progress! How long can you survive?</p>
       <button onclick="startGame()">START DEEP WORK</button>
-      <a href="index.html">← ALL GAMES</a>
+      <button onclick="showHighscores()">VIEW HIGHSCORES</button>
+    </div>
+
+    <div id="highscorePopup" onclick="hideHighscores()">
+      <h2>🏆 TOP 10 LEADERBOARD</h2>
       <div id="leaderboard">
-        <h2>🏆 TOP 10 LEADERBOARD</h2>
         <div id="leaderboardList"></div>
       </div>
+      <p>Click anywhere to return</p>
     </div>
 
     <div id="pauseScreen" class="screen hidden">
@@ -63,7 +84,6 @@
       <p>Press <span class="highlight">ESC</span> to resume</p>
       <button onclick="resumeGame()">RESUME</button>
       <button onclick="restartGame()">RESTART</button>
-      <a href="index.html">← ALL GAMES</a>
     </div>
 
     <div id="gameOverScreen" class="screen hidden">
@@ -94,11 +114,24 @@
     let score = 0;
     let bugsCaught = 0;
     let distance = 0;
-    let gameSpeed = 4;
-    let gravity = 0.6;
-    let jumpStrength = 13;
+    let gameSpeed = 3.5;  // Gentler starting speed
+    const maxGameSpeed = 9;  // Reduced max speed for fairer gameplay
+    let gravityRise = 0.6;  // Adjusted for lower jump
+    let gravityFall = 0.8;  // Faster gravity when falling
+    let maxFallSpeed = 15;  // Terminal velocity
+    let jumpStrength = 14;  // Balanced - can clear obstacles comfortably (max height ~163px)
+    let jumpHoldTime = 0;  // Track how long space is held
+    const shortJumpStrength = 8;  // For quick taps
+    const jumpHoldThreshold = 0.15;  // Time threshold to distinguish tap from hold (seconds)
     let isJumping = false;
+    let jumpKeyPressed = false;  // Track if jump key is currently held
     let screenShake = 0;
+
+    // Advanced jump mechanics
+    let coyoteTime = 0;        // Grace period after leaving ground
+    let coyoteTimeMax = 0.1;   // 0.1 seconds
+    let jumpBuffer = 0;        // Remember jump input
+    let jumpBufferMax = 0.1;   // 0.1 seconds
 
     // Player
     const player = {
@@ -117,6 +150,19 @@
     let obstacles = [];
     let obstacleTimer = 0;
     let obstacleInterval = 2.0; // seconds
+
+    // Obstacle patterns for predictable but challenging gameplay
+    const obstaclePatterns = [
+      { interval: 2.2, count: 1, description: 'single' },       // Single obstacle - always safe to jump
+      { interval: 2.5, count: 1, description: 'recovery' },     // Wide gap - recovery time
+      { interval: 1.8, count: 2, gap: 2.5, description: 'double' }, // Two obstacles - jump both or run between
+      { interval: 2.0, count: 1, description: 'single' },       // Single obstacle
+      { interval: 2.8, count: 1, description: 'recovery' },     // Wide gap with potential bug
+      { interval: 1.6, count: 2, gap: 2.0, description: 'quick-double' } // Quick succession
+    ];
+    let currentPattern = 0;
+    let patternObstaclesSpawned = 0;
+    let patternGapTimer = 0;
 
     // Collectibles (bugs)
     let bugs = [];
@@ -192,25 +238,48 @@
       }
     }
 
-    // Obstacle class
+    // Obstacle class with visual telegraphing
     class Obstacle {
       constructor() {
         this.x = canvas.width;
-        this.y = groundY - 60;
+        this.y = groundY - 55;  // Reduced height for better clearance
         this.width = 70;
-        this.height = 60;
+        this.height = 55;  // Slightly shorter obstacle
         this.passed = false;
+        this.spawnTime = 0;  // Track time since spawn for warning effects
       }
 
-      update() {
+      update(delta) {
         this.x -= gameSpeed;
+        this.spawnTime += delta;
+      }
+
+      isInWarningZone() {
+        // Warning zone is the right 250px of screen
+        return this.x >= canvas.width - 250;
       }
 
       draw() {
-        // Draw meeting icon/box
+        const inWarningZone = this.isInWarningZone();
+
+        // Draw warning indicator when obstacle is in warning zone
+        if (inWarningZone) {
+          // Pulsing warning line
+          const pulse = Math.sin(this.spawnTime * 10) * 0.3 + 0.7;
+          ctx.strokeStyle = `rgba(255, 0, 0, ${pulse * 0.5})`;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([10, 5]);
+          ctx.beginPath();
+          ctx.moveTo(this.x, 0);
+          ctx.lineTo(this.x, groundY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw meeting icon/box with enhanced glow in warning zone
         ctx.fillStyle = '#f00';
         ctx.shadowColor = '#f00';
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = inWarningZone ? 25 : 15;  // Stronger glow in warning zone
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.shadowBlur = 0;
 
@@ -224,22 +293,71 @@
       }
 
       collidesWith(player) {
-        return player.x < this.x + this.width &&
-               player.x + player.width > this.x &&
-               player.y < this.y + this.height &&
-               player.y + player.height > this.y;
+        // More forgiving collision with tolerance margins
+        const margin = 5;  // 5px tolerance for better feel
+        return player.x + margin < this.x + this.width &&
+               player.x + player.width - margin > this.x &&
+               player.y + margin < this.y + this.height &&
+               player.y + player.height - margin > this.y;
       }
     }
 
-    // Bug class
+    // Bug class with intelligent placement
     class Bug {
-      constructor() {
+      constructor(obstacles) {
         this.x = canvas.width;
-        this.y = groundY - Math.random() * 200 - 100; // Random height
         this.width = 30;
         this.height = 30;
         this.collected = false;
         this.wobble = Math.random() * Math.PI * 2;
+
+        // Intelligent height placement based on nearby obstacles
+        this.y = this.calculateSafeHeight(obstacles);
+      }
+
+      calculateSafeHeight(obstacles) {
+        // Define height zones based on actual jump capability
+        // Jump strength 14 with gravity 0.6 gives max height ~163px
+        const LOW_MIN = 40;   // Easy to reach
+        const LOW_MAX = 85;   // Low jump
+        const MID_MIN = 85;   // Medium difficulty
+        const MID_MAX = 135;  // Mid-jump arc
+        const HIGH_MIN = 135; // Challenging
+        const HIGH_MAX = 160; // Requires perfect timing at jump peak
+
+        // Check if any obstacle is nearby (within 200-500px ahead)
+        const nearbyObstacle = obstacles.find(obs =>
+          obs.x > this.x - 100 && obs.x < this.x + 500
+        );
+
+        let heightZone;
+
+        if (nearbyObstacle) {
+          // If obstacle nearby, only use MID or HIGH zones (safe to jump)
+          heightZone = Math.random() < 0.6 ? 'MID' : 'HIGH';
+        } else {
+          // If no obstacle, can use any zone (including rewards for perfect timing)
+          const rand = Math.random();
+          if (rand < 0.3) heightZone = 'LOW';
+          else if (rand < 0.7) heightZone = 'MID';
+          else heightZone = 'HIGH';
+        }
+
+        // Calculate Y position based on chosen zone
+        let height;
+        switch(heightZone) {
+          case 'LOW':
+            height = LOW_MIN + Math.random() * (LOW_MAX - LOW_MIN);
+            break;
+          case 'MID':
+            height = MID_MIN + Math.random() * (MID_MAX - MID_MIN);
+            break;
+          case 'HIGH':
+            height = HIGH_MIN + Math.random() * (HIGH_MAX - HIGH_MIN);
+            break;
+        }
+
+        return groundY - height;
       }
 
       update() {
@@ -250,20 +368,57 @@
       draw() {
         const wobbleY = Math.sin(this.wobble) * 5;
 
+        // Enhanced glow when near player (magnetism feedback)
+        const isNear = this.isNearPlayer(player);
         ctx.shadowColor = '#f0f';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = isNear ? 30 : 20;  // Brighter glow when close
         ctx.font = '30px Courier New';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+
+        // Draw collection radius indicator when near (subtle)
+        if (isNear) {
+          ctx.strokeStyle = 'rgba(255, 0, 255, 0.3)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 35, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         ctx.fillText('🐛', this.x + this.width / 2, this.y + this.height / 2 + wobbleY);
         ctx.shadowBlur = 0;
       }
 
       collidesWith(player) {
-        return player.x < this.x + this.width &&
-               player.x + player.width > this.x &&
-               player.y < this.y + this.height &&
-               player.y + player.height > this.y;
+        // Use distance-based collision with magnetism for more forgiving collection
+        const bugCenterX = this.x + this.width / 2;
+        const bugCenterY = this.y + this.height / 2;
+        const playerCenterX = player.x + player.width / 2;
+        const playerCenterY = player.y + player.height / 2;
+
+        const distance = Math.sqrt(
+          Math.pow(bugCenterX - playerCenterX, 2) +
+          Math.pow(bugCenterY - playerCenterY, 2)
+        );
+
+        // Collection radius - more forgiving than exact AABB collision
+        const collectionRadius = 35;  // Slightly larger than bug size for magnetism
+        return distance < collectionRadius;
+      }
+
+      // Check if bug is near player for visual feedback
+      isNearPlayer(player) {
+        const bugCenterX = this.x + this.width / 2;
+        const bugCenterY = this.y + this.height / 2;
+        const playerCenterX = player.x + player.width / 2;
+        const playerCenterY = player.y + player.height / 2;
+
+        const distance = Math.sqrt(
+          Math.pow(bugCenterX - playerCenterX, 2) +
+          Math.pow(bugCenterY - playerCenterY, 2)
+        );
+
+        return distance < 50;  // Warning radius slightly larger than collection
       }
     }
 
@@ -350,16 +505,23 @@
       score = 0;
       bugsCaught = 0;
       distance = 0;
-      gameSpeed = 4;
+      gameSpeed = 3.5;
       player.y = groundY - player.height;
       player.velocityY = 0;
       player.isOnGround = true;
       isJumping = false;
+      jumpKeyPressed = false;
+      jumpHoldTime = 0;
+      coyoteTime = 0;
+      jumpBuffer = 0;
       obstacles = [];
       bugs = [];
       particles = [];
       obstacleTimer = 0;
       bugTimer = 0;
+      currentPattern = 0;
+      patternObstaclesSpawned = 0;
+      patternGapTimer = 0;
       screenShake = 0;
       updateHUD();
     }
@@ -371,11 +533,19 @@
     }
 
     function jump() {
-      if (player.isOnGround && gameState === 'playing') {
-        player.velocityY = -jumpStrength;
-        player.isOnGround = false;
-        isJumping = true;
-        jumpSound();
+      if (gameState === 'playing') {
+        // Try to jump immediately if on ground or in coyote time
+        if (player.isOnGround || coyoteTime > 0) {
+          player.velocityY = -jumpStrength;
+          player.isOnGround = false;
+          isJumping = true;
+          coyoteTime = 0;  // Use up coyote time
+          jumpBuffer = 0;  // Clear buffer
+          jumpSound();
+        } else {
+          // Store jump input for buffering
+          jumpBuffer = jumpBufferMax;
+        }
       }
     }
 
@@ -419,17 +589,44 @@
     }
 
     function drawBackground() {
-      // Scrolling grid lines
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.1)';
-      ctx.lineWidth = 1;
-      const offset = (distance * gameSpeed) % 50;
+      // Far background layer - slow parallax stars for depth (30% speed)
+      ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+      const farOffset = (distance * gameSpeed * 0.3) % 100;
+      for (let i = -farOffset; i < canvas.width; i += 100) {
+        for (let j = 50; j < canvas.height - 100; j += 80) {
+          ctx.fillRect(i, j, 2, 2);
+        }
+      }
 
-      for (let i = -offset; i < canvas.width; i += 50) {
+      // Near background layer - grid lines synchronized with obstacles (100% speed)
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.15)';
+      ctx.lineWidth = 1;
+      const nearOffset = (distance * gameSpeed) % 60;
+
+      for (let i = -nearOffset; i < canvas.width; i += 60) {
         ctx.beginPath();
         ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
+        ctx.lineTo(i, groundY);
         ctx.stroke();
       }
+
+      // Warning zone overlay on right side of screen
+      const warningZoneX = canvas.width - 250;
+      const gradient = ctx.createLinearGradient(warningZoneX, 0, canvas.width, 0);
+      gradient.addColorStop(0, 'rgba(255, 100, 0, 0)');
+      gradient.addColorStop(1, 'rgba(255, 100, 0, 0.05)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(warningZoneX, 0, 250, groundY);
+
+      // Warning zone border
+      ctx.strokeStyle = 'rgba(255, 100, 0, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(warningZoneX, 0);
+      ctx.lineTo(warningZoneX, groundY);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     function gameLoop(timestamp) {
@@ -441,8 +638,13 @@
       // Cap delta to prevent large jumps
       if (delta > 0.1) delta = 0.1;
 
-      // Increase speed over time
-      gameSpeed += 0.001;
+      // Increase speed over time (gentler acceleration for fairer difficulty curve)
+      if (gameSpeed < maxGameSpeed) {
+        gameSpeed += 0.0003;  // Slower acceleration
+        if (gameSpeed > maxGameSpeed) {
+          gameSpeed = maxGameSpeed;
+        }
+      }
 
       // Increase score with distance
       distance += delta * 10;
@@ -467,31 +669,108 @@
 
       // Update player physics
       if (!player.isOnGround) {
-        player.velocityY += gravity;
+        // Apply variable gravity with floatiness at peak
+        let currentGravity;
+        if (player.velocityY >= -2 && player.velocityY <= 2) {
+          // At jump peak - add floatiness for better control
+          currentGravity = 0.3;
+        } else if (player.velocityY < 0) {
+          // Rising
+          currentGravity = gravityRise;
+          // If jump key released early, apply extra gravity to shorten jump
+          if (!jumpKeyPressed && jumpHoldTime < jumpHoldThreshold) {
+            currentGravity = gravityFall;
+          }
+        } else {
+          // Falling
+          currentGravity = gravityFall;
+        }
+
+        player.velocityY += currentGravity;
+
+        // Apply terminal velocity
+        if (player.velocityY > maxFallSpeed) {
+          player.velocityY = maxFallSpeed;
+        }
+
         player.y += player.velocityY;
+
+        // Update coyote time (only if not jumping, i.e., walked off edge)
+        if (!isJumping && coyoteTime > 0) {
+          coyoteTime -= delta;
+        }
 
         if (player.y >= groundY - player.height) {
           player.y = groundY - player.height;
           player.velocityY = 0;
           player.isOnGround = true;
           isJumping = false;
+
+          // Apply buffered jump if player pressed jump before landing
+          if (jumpBuffer > 0) {
+            jump();
+          }
         }
+      } else {
+        // Player is on ground - reset coyote time
+        coyoteTime = coyoteTimeMax;
+      }
+
+      // Decrement jump buffer
+      if (jumpBuffer > 0) {
+        jumpBuffer -= delta;
+      }
+
+      // Track jump key hold time
+      if (jumpKeyPressed && !player.isOnGround) {
+        jumpHoldTime += delta;
       }
 
       drawPlayer();
 
-      // Spawn obstacles
+      // Spawn obstacles using pattern system
       obstacleTimer += delta;
-      if (obstacleTimer >= obstacleInterval) {
-        obstacles.push(new Obstacle());
-        obstacleTimer = 0;
-        obstacleInterval = Math.max(1.0, 2.0 - (gameSpeed - 4) * 0.1); // Decrease interval as speed increases
+
+      const pattern = obstaclePatterns[currentPattern];
+      const baseInterval = pattern.interval;
+      // Adjust interval based on game speed (gets slightly faster but not too much)
+      const adjustedInterval = Math.max(1.2, baseInterval - (gameSpeed - 3.5) * 0.08);
+
+      if (pattern.count > 1 && patternObstaclesSpawned > 0) {
+        // Multi-obstacle pattern: use gap timer for spacing between obstacles in the same pattern
+        patternGapTimer += delta;
+        if (patternGapTimer >= pattern.gap && patternObstaclesSpawned < pattern.count) {
+          obstacles.push(new Obstacle());
+          patternObstaclesSpawned++;
+          patternGapTimer = 0;
+        }
+
+        // After all obstacles in pattern are spawned, wait for interval before next pattern
+        if (patternObstaclesSpawned >= pattern.count && obstacleTimer >= adjustedInterval) {
+          obstacleTimer = 0;
+          currentPattern = (currentPattern + 1) % obstaclePatterns.length;
+          patternObstaclesSpawned = 0;
+        }
+      } else {
+        // Single obstacle pattern or first obstacle of multi-obstacle pattern
+        if (obstacleTimer >= adjustedInterval) {
+          obstacles.push(new Obstacle());
+          patternObstaclesSpawned++;
+          obstacleTimer = 0;
+          patternGapTimer = 0;
+
+          // If single obstacle pattern, move to next pattern immediately
+          if (pattern.count === 1) {
+            currentPattern = (currentPattern + 1) % obstaclePatterns.length;
+            patternObstaclesSpawned = 0;
+          }
+        }
       }
 
       // Update and draw obstacles
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obstacle = obstacles[i];
-        obstacle.update();
+        obstacle.update(delta);
         obstacle.draw();
 
         // Check collision
@@ -512,12 +791,12 @@
         }
       }
 
-      // Spawn bugs
+      // Spawn bugs with intelligent placement
       bugTimer += delta;
       if (bugTimer >= bugInterval) {
-        bugs.push(new Bug());
+        bugs.push(new Bug(obstacles));  // Pass obstacles for intelligent placement
         bugTimer = 0;
-        bugInterval = Math.max(0.8, 1.5 - (gameSpeed - 4) * 0.05);
+        bugInterval = Math.max(0.8, 1.5 - (gameSpeed - 3.5) * 0.05);  // Adjusted for new speed range
       }
 
       // Update and draw bugs
@@ -624,12 +903,23 @@
 
       if (e.key === ' ' || e.key === 'ArrowUp') {
         e.preventDefault();
-        jump();
+        if (!jumpKeyPressed) {  // Only trigger on initial press
+          jumpKeyPressed = true;
+          jumpHoldTime = 0;
+          jump();
+        }
       }
 
       // Submit score with Enter key
       if (e.key === 'Enter' && gameState === 'gameOver') {
         saveScoreAndExit();
+      }
+    });
+
+    // Track key release for variable jump height
+    document.addEventListener('keyup', (e) => {
+      if (e.key === ' ' || e.key === 'ArrowUp') {
+        jumpKeyPressed = false;
       }
     });
 
@@ -645,6 +935,16 @@
 
     // Initial player position
     player.y = groundY - player.height;
+
+    // Highscore popup functions
+    function showHighscores() {
+      displayLeaderboard();
+      document.getElementById('highscorePopup').classList.add('show');
+    }
+
+    function hideHighscores() {
+      document.getElementById('highscorePopup').classList.remove('show');
+    }
   </script>
 </body>
 </html>

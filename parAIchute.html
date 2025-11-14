@@ -5,8 +5,34 @@
   <title>Prompt Shooter</title>
   <link rel="stylesheet" href="styles.css">
   <style>
+    #gameContainer {
+      width: 800px;
+      height: 600px;
+    }
+
     canvas {
       background: radial-gradient(ellipse at center, #111 0%, #000 100%);
+    }
+
+    .screen {
+      padding: 30px 20px;
+    }
+
+    .screen h1 {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .screen p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
+
+    .screen button,
+    .screen a {
+      padding: 12px 25px;
+      font-size: 15px;
+      margin: 8px;
     }
   </style>
 </head>
@@ -21,18 +47,22 @@
     </div>
     <div id="combo" class="hidden"></div>
 
-    <div id="startScreen" class="screen">
+    <div id="startScreen" class="screen with-popup-leaderboard">
       <h1>🎯 PROMPT SHOOTER</h1>
       <p>Type GenAI terms to shoot falling words before they hit the ground!</p>
       <p>Type the word and press ENTER to fire. Match words exactly (case-sensitive).</p>
       <p><strong>Controls:</strong> Type to aim, ENTER to shoot, ESC to pause</p>
-      <p>Complete all 10 levels to win! Don't let words reach the bottom!</p>
+      <p>Complete all 20 levels to win! Levels 11+ are LEGENDARY difficulty!</p>
       <button onclick="startGame()">START GAME</button>
-      <a href="index.html">← ALL GAMES</a>
+      <button onclick="showHighscores()">VIEW HIGHSCORES</button>
+    </div>
+
+    <div id="highscorePopup" onclick="hideHighscores()">
+      <h2>🏆 TOP 10 LEADERBOARD</h2>
       <div id="leaderboard">
-        <h2>🏆 TOP 10 LEADERBOARD</h2>
         <div id="leaderboardList"></div>
       </div>
+      <p>Click anywhere to return</p>
     </div>
 
     <div id="pauseScreen" class="screen hidden">
@@ -40,7 +70,6 @@
       <p>Press ESC to resume</p>
       <button onclick="resumeGame()">RESUME</button>
       <button onclick="restartGame()">RESTART</button>
-      <a href="index.html">← ALL GAMES</a>
     </div>
 
     <div id="gameOverScreen" class="screen hidden">
@@ -72,7 +101,8 @@
     const canonX = canvas.width / 2;
     const canonY = canvas.height - 30;
 
-    const levels = [
+    // Base levels 1-10 (original difficulty)
+    const baseLevels = [
       ["prompt", "token", "LLM", "embedding"],
       ["vector", "inference", "chatbot", "alignment", "hallucination"],
       ["context", "multimodal", "GPT", "prompting", "temperature"],
@@ -84,6 +114,30 @@
       ["agent", "scratchpad", "RLHF", "retrieval"],
       ["meta", "mistral", "groq", "llama", "gemini"]
     ];
+
+    // Additional words for levels 11-20 (progressive difficulty)
+    const additionalWords = [
+      "latency", "sampling", "perplexity", "beam-search", "top-k",
+      "nucleus", "parameters", "weights", "gradient", "backprop"
+    ];
+
+    // Generate word pool for a given level
+    function getLevelWords(levelNum) {
+      if (levelNum < 10) {
+        // Levels 1-10: Use base levels as-is
+        return baseLevels[levelNum];
+      } else {
+        // Levels 11-20: Sequential growth (each level adds 1 word to previous level's pool)
+        let pool = [...baseLevels[9]]; // Start with level 10's words
+
+        // Add words sequentially up to current level
+        for (let i = 0; i <= levelNum - 10; i++) {
+          pool.push(additionalWords[i]);
+        }
+
+        return pool;
+      }
+    }
 
     let level = 0;
     let words = [];
@@ -99,6 +153,16 @@
     let comboTimer = 0;
     let screenShake = 0;
     let targetWord = null;
+
+    // Glitch effect variables for levels 10+
+    let glitchTimer = 0;
+    let warningTimer = 0;
+    let currentWarning = null;
+    let warningDuration = 0;
+    let colorFlickerTimer = 0;
+    let scanlineOffset = 0;
+    let baseShakeAmount = 0;
+    let impactShakeTimer = 0;
 
     // Audio context for sound effects
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -240,6 +304,168 @@
       setTimeout(() => playSound(200, 0.4, 'sawtooth'), 300);
     }
 
+    // ===== GLITCH EFFECTS FOR LEVELS 10+ =====
+
+    // Calculate glitch intensity based on level (0 for levels < 10)
+    function getGlitchIntensity() {
+      if (level < 10) return 0;
+
+      // Progressive intensity
+      if (level < 12) return 0.3;  // Level 10-11: Mild
+      if (level < 15) return 0.5;  // Level 12-14: Moderate
+      if (level < 18) return 0.7;  // Level 15-17: Heavy
+      return 1.0;                   // Level 18-20: Extreme
+    }
+
+    // Draw scanlines effect
+    function drawScanlines(intensity) {
+      const lineCount = Math.floor(10 * intensity);
+      ctx.strokeStyle = `rgba(0, 255, 0, ${0.1 * intensity})`;
+      ctx.lineWidth = 2;
+
+      for (let i = 0; i < lineCount; i++) {
+        const y = (scanlineOffset + i * 60) % canvas.height;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    // Draw static/noise overlay
+    function drawStatic(intensity) {
+      if (Math.random() < 0.95) return; // Only show occasionally
+
+      const pixels = ctx.createImageData(canvas.width, canvas.height);
+      const opacity = 0.15 * intensity;
+
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        if (Math.random() < 0.1 * intensity) {
+          const val = Math.random() * 255;
+          pixels.data[i] = val;     // R
+          pixels.data[i + 1] = val; // G
+          pixels.data[i + 2] = val; // B
+          pixels.data[i + 3] = opacity * 255; // A
+        }
+      }
+
+      ctx.putImageData(pixels, 0, 0);
+    }
+
+    // Get pulsing background color based on intensity
+    function getPulsingColor(intensity, time) {
+      if (intensity === 0) return null;
+
+      const pulse = Math.sin(time * 3) * 0.5 + 0.5; // 0 to 1
+      const r = Math.floor(17 + (255 - 17) * pulse * intensity);
+      const g = Math.floor(17 - 17 * pulse * intensity);
+      const b = 0;
+
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Draw warning text
+    function drawWarning() {
+      if (!currentWarning) return;
+
+      ctx.save();
+      ctx.font = "bold 24px Courier New";
+      ctx.textAlign = "center";
+
+      // Flashing effect
+      const flash = Math.sin(Date.now() / 100) > 0;
+      ctx.fillStyle = flash ? "#f00" : "#ff0";
+      ctx.shadowColor = flash ? "#f00" : "#ff0";
+      ctx.shadowBlur = 30;
+
+      // Glitch effect on text position
+      const glitchX = (Math.random() - 0.5) * 10;
+      const glitchY = (Math.random() - 0.5) * 5;
+
+      ctx.fillText(currentWarning, canvas.width / 2 + glitchX, 60 + glitchY);
+      ctx.restore();
+    }
+
+    // Update glitch effects
+    function updateGlitchEffects(delta) {
+      const intensity = getGlitchIntensity();
+      if (intensity === 0) return;
+
+      // Update scanline animation
+      scanlineOffset += 50 * delta * intensity;
+      if (scanlineOffset > canvas.height) scanlineOffset = 0;
+
+      // Update color flicker timer
+      colorFlickerTimer += delta;
+
+      // Update warning text
+      warningTimer -= delta;
+      if (warningTimer <= 0 && currentWarning === null) {
+        // Spawn new warning
+        const warnings = [
+          "⚠️ SYSTEM OVERLOAD",
+          "⚠️ CRITICAL ERROR",
+          "⚠️ DEFENSE BREACH",
+          "⚠️ CORE MELTDOWN",
+          "⚠️ SHUTDOWN IMMINENT"
+        ];
+        currentWarning = warnings[Math.floor(Math.random() * warnings.length)];
+        warningDuration = 1.5; // Show for 1.5 seconds
+
+        // Random interval based on intensity
+        warningTimer = (3 - 2 * intensity) + Math.random() * 2;
+      }
+
+      if (currentWarning !== null) {
+        warningDuration -= delta;
+        if (warningDuration <= 0) {
+          currentWarning = null;
+        }
+      }
+
+      // Update base screen shake
+      baseShakeAmount = 0.1 * intensity;
+
+      // Periodic impact shakes
+      impactShakeTimer -= delta;
+      if (impactShakeTimer <= 0) {
+        screenShake = Math.max(screenShake, 0.3 * intensity);
+        impactShakeTimer = 2 - intensity; // More frequent at higher intensity
+      }
+    }
+
+    // Draw all glitch effects
+    function drawGlitchEffects() {
+      const intensity = getGlitchIntensity();
+      if (intensity === 0) return;
+
+      // Pulsing background color
+      const bgColor = getPulsingColor(intensity, colorFlickerTimer);
+      if (bgColor && Math.random() < 0.8) { // Occasional normal background
+        ctx.fillStyle = bgColor;
+        ctx.globalAlpha = 0.3 * intensity;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+      }
+
+      // Random color inversion flash
+      if (Math.random() < 0.02 * intensity) {
+        ctx.globalCompositeOperation = 'difference';
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+
+      // Scanlines
+      drawScanlines(intensity);
+
+      // Static overlay
+      drawStatic(intensity);
+
+      // Warning text (drawn last, on top)
+      drawWarning();
+    }
+
     class Particle {
       constructor(x, y, color) {
         this.x = x;
@@ -269,12 +495,47 @@
     }
 
     class FallingWord {
-      constructor(word) {
+      constructor(word, yOffset = 0) {
         this.word = word;
-        this.x = Math.random() * (canvas.width - 100) + 50;
-        this.y = -50;
+        this.y = -50 + yOffset; // Support staggered spawning
         this.speed = 30 + Math.random() * 30 + (level * 5); // Speed increases per level
+
+        // Measure word width first
         this.width = ctx.measureText(word).width;
+
+        // Calculate safe x position to keep entire word visible
+        // Add margin of 20px on each side
+        const margin = 20;
+        const minX = margin;
+        const maxX = canvas.width - this.width - margin;
+
+        // Try to find a position that doesn't overlap with existing words
+        let attempts = 0;
+        let validPosition = false;
+
+        while (!validPosition && attempts < 50) {
+          this.x = Math.random() * (maxX - minX) + minX;
+          validPosition = this.checkSpacing();
+          attempts++;
+        }
+
+        // If we couldn't find a good position after 50 attempts, use the last one anyway
+      }
+
+      checkSpacing() {
+        // Check if this word overlaps with existing words
+        const minSpacing = 80; // Minimum horizontal distance between words
+
+        for (let word of words) {
+          const horizontalDistance = Math.abs(this.x - word.x);
+          const verticalDistance = Math.abs(this.y - word.y);
+
+          // Only check spacing if words are vertically close
+          if (verticalDistance < 100 && horizontalDistance < minSpacing + this.width) {
+            return false; // Too close
+          }
+        }
+        return true; // Spacing is good
       }
 
       update(delta) {
@@ -297,17 +558,70 @@
       }
     }
 
+    // Calculate intercept point for predictive aiming
+    function calculateInterceptPoint(word) {
+      const bulletSpeed = 500;
+      const wordX = word.x;
+      const wordY = word.y;
+      const wordVY = word.speed; // Word falling speed
+
+      // Solve quadratic equation for intercept time
+      // Distance equation: sqrt((wordX - canonX)² + (wordY + wordVY*t - canonY)²) = bulletSpeed * t
+      const dx = wordX - canonX;
+      const dy = wordY - canonY;
+
+      // Coefficients for quadratic equation: a*t² + b*t + c = 0
+      const a = wordVY * wordVY - bulletSpeed * bulletSpeed;
+      const b = 2 * dy * wordVY;
+      const c = dx * dx + dy * dy;
+
+      // Calculate discriminant
+      const discriminant = b * b - 4 * a * c;
+
+      // If no real solution, aim at current position (shouldn't happen with our setup)
+      if (discriminant < 0) {
+        return { x: wordX, y: wordY };
+      }
+
+      // Solve for time (take positive solution that represents future intercept)
+      const sqrtDisc = Math.sqrt(discriminant);
+      const t1 = (-b + sqrtDisc) / (2 * a);
+      const t2 = (-b - sqrtDisc) / (2 * a);
+
+      // Choose the smaller positive time value
+      let t;
+      if (t1 > 0 && t2 > 0) {
+        t = Math.min(t1, t2);
+      } else if (t1 > 0) {
+        t = t1;
+      } else if (t2 > 0) {
+        t = t2;
+      } else {
+        // No positive solution, aim at current position
+        return { x: wordX, y: wordY };
+      }
+
+      // Calculate intercept point
+      const interceptX = wordX; // Word doesn't move horizontally
+      const interceptY = wordY + wordVY * t;
+
+      return { x: interceptX, y: interceptY };
+    }
+
     class Bullet {
-      constructor(targetX, targetY, word) {
+      constructor(word) {
         this.x = canonX;
         this.y = canonY;
-        this.targetX = targetX;
-        this.targetY = targetY;
-        this.word = word;
+        this.word = word.word;
 
-        // Calculate trajectory
-        const dx = targetX - canonX;
-        const dy = targetY - canonY;
+        // Calculate intercept point using predictive aiming
+        const intercept = calculateInterceptPoint(word);
+        this.targetX = intercept.x;
+        this.targetY = intercept.y;
+
+        // Calculate trajectory to intercept point
+        const dx = intercept.x - canonX;
+        const dy = intercept.y - canonY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const speed = 500;
 
@@ -333,9 +647,46 @@
       }
     }
 
+    // Determine batch size based on level for difficulty curve
+    function getBatchSize(levelNum) {
+      if (levelNum < 5) return 2;      // Levels 1-5: 2 words per batch
+      if (levelNum < 10) return 3;     // Levels 6-10: 3 words per batch
+      if (levelNum < 15) return 4;     // Levels 11-15: 4 words per batch
+      return 5;                         // Levels 16-20: 5 words per batch
+    }
+
+    // Determine spawn delay between batches
+    function getSpawnDelay(levelNum) {
+      if (levelNum < 10) return 800;   // Levels 1-10: 0.8 second delay
+      if (levelNum < 15) return 600;   // Levels 11-15: 0.6 second delay
+      return 400;                       // Levels 16-20: 0.4 second delay (faster = harder)
+    }
+
+    // Spawn a single batch of words with staggered Y positions
+    function spawnBatch(batch) {
+      batch.forEach((word, index) => {
+        const yOffset = -index * 60; // Stagger vertically (60px spacing)
+        words.push(new FallingWord(word, yOffset));
+      });
+    }
+
+    // Spawn entire level in batches with delays
     function spawnLevel() {
-      words = levels[level].map(word => new FallingWord(word));
-      levelDisplay.textContent = "Level " + (level + 1);
+      const levelWords = getLevelWords(level);
+      const batchSize = getBatchSize(level);
+      const spawnDelay = getSpawnDelay(level);
+
+      // Split words into batches
+      for (let i = 0; i < levelWords.length; i += batchSize) {
+        const batch = levelWords.slice(i, i + batchSize);
+        const delay = (i / batchSize) * spawnDelay;
+
+        setTimeout(() => {
+          spawnBatch(batch);
+        }, delay);
+      }
+
+      levelDisplay.textContent = "Level " + (level + 1) + "/20";
     }
 
     function updateHUD() {
@@ -383,12 +734,17 @@
         }
       }
 
-      // Screen shake
+      // Update glitch effects for levels 10+
+      updateGlitchEffects(delta);
+
+      // Enhanced screen shake (includes base shake from glitch intensity)
       let offsetX = 0, offsetY = 0;
-      if (screenShake > 0) {
-        offsetX = (Math.random() - 0.5) * screenShake * 20;
-        offsetY = (Math.random() - 0.5) * screenShake * 20;
+      const totalShake = screenShake + baseShakeAmount;
+      if (totalShake > 0) {
+        offsetX = (Math.random() - 0.5) * totalShake * 20;
+        offsetY = (Math.random() - 0.5) * totalShake * 20;
         screenShake -= delta * 2;
+        if (screenShake < 0) screenShake = 0;
       }
 
       ctx.save();
@@ -471,12 +827,15 @@
         return b.y > -50 && b.x > -50 && b.x < canvas.width + 50;
       });
 
+      // Draw glitch effects on top (levels 10+)
+      drawGlitchEffects();
+
       ctx.restore();
 
       // Level complete
       if (words.length === 0) {
         level++;
-        if (level >= levels.length) {
+        if (level >= 20) { // Victory after completing level 20
           winGame();
           return;
         }
@@ -495,6 +854,17 @@
       typed = "";
       gameState = "playing";
       targetWord = null;
+
+      // Reset glitch effect variables
+      glitchTimer = 0;
+      warningTimer = 0;
+      currentWarning = null;
+      warningDuration = 0;
+      colorFlickerTimer = 0;
+      scanlineOffset = 0;
+      baseShakeAmount = 0;
+      impactShakeTimer = 0;
+
       spawnLevel();
       updateHUD();
       lastFrame = performance.now();
@@ -587,7 +957,7 @@
       const index = words.findIndex(w => w.word === typed.trim());
       if (index !== -1) {
         const w = words[index];
-        activeBullets.push(new Bullet(w.x, w.y, w.word));
+        activeBullets.push(new Bullet(w)); // Pass entire word object for predictive aiming
         shootSound();
       }
     }
@@ -621,6 +991,16 @@
         saveScoreAndExit('win');
       }
     });
+
+    // Highscore popup functions
+    function showHighscores() {
+      displayLeaderboard();
+      document.getElementById('highscorePopup').classList.add('show');
+    }
+
+    function hideHighscores() {
+      document.getElementById('highscorePopup').classList.remove('show');
+    }
   </script>
 </body>
 </html>

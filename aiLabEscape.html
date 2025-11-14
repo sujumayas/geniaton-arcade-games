@@ -33,6 +33,27 @@
     #hud > div {
       margin: 5px 0;
     }
+
+    .screen {
+      padding: 30px 20px;
+    }
+
+    .screen h1 {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .screen p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
+
+    .screen button,
+    .screen a {
+      padding: 12px 25px;
+      font-size: 15px;
+      margin: 8px;
+    }
   </style>
 </head>
 <body>
@@ -48,18 +69,22 @@
       <span id="timeText">20</span>s
     </div>
 
-    <div id="startScreen" class="screen">
+    <div id="startScreen" class="screen with-popup-leaderboard">
       <h1>🤖 AI LAB ESCAPE</h1>
       <p>You are an AI prototype escaping from a research lab.</p>
       <p>Navigate through the maze using ARROW KEYS and reach the exit before time runs out!</p>
       <p class="warning">⚠️ First maze: 25 seconds. Each maze: 1 second LESS!</p>
       <p>How many mazes can you escape? Beat the HIGH SCORES!</p>
-      <div id="leaderboardDisplay" style="margin-top: 20px; text-align: left; max-width: 500px;">
-        <h3 style="text-align: center;">🏆 HIGH SCORES 🏆</h3>
+      <button onclick="startGame()">START ESCAPE</button>
+      <button onclick="showHighscores()">VIEW HIGHSCORES</button>
+    </div>
+
+    <div id="highscorePopup" onclick="hideHighscores()">
+      <h2>🏆 HIGH SCORES 🏆</h2>
+      <div id="leaderboardDisplay">
         <div id="leaderboardList"></div>
       </div>
-      <button onclick="startGame()">START ESCAPE</button>
-      <a href="index.html" style="padding: 15px 30px; background: transparent; border: 2px solid #0ff; color: #0ff; font-family: 'Courier New', Courier, monospace; font-size: 16px; cursor: pointer; margin: 10px; transition: all 0.3s; text-decoration: none; display: inline-block;">← ALL GAMES</a>
+      <p>Click anywhere to return</p>
     </div>
 
     <div id="pauseScreen" class="screen hidden">
@@ -567,6 +592,16 @@
     window.addEventListener('DOMContentLoaded', () => {
       displayLeaderboard();
     });
+
+    // Highscore popup functions
+    function showHighscores() {
+      displayLeaderboard();
+      document.getElementById('highscorePopup').classList.add('show');
+    }
+
+    function hideHighscores() {
+      document.getElementById('highscorePopup').classList.remove('show');
+    }
 
     // Start the game loop
     requestAnimationFrame(gameLoop);

@@ -5,6 +5,11 @@
   <title>Innovation Maniac</title>
   <link rel="stylesheet" href="styles.css">
   <style>
+    #gameContainer {
+      width: 800px;
+      height: 600px;
+    }
+
     canvas {
       background: #000;
     }
@@ -12,6 +17,27 @@
     .highlight {
       color: #ff0;
       text-shadow: 0 0 10px #ff0;
+    }
+
+    .screen {
+      padding: 30px 20px;
+    }
+
+    .screen h1 {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .screen p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
+
+    .screen button,
+    .screen a {
+      padding: 12px 25px;
+      font-size: 15px;
+      margin: 8px;
     }
   </style>
 </head>
@@ -21,22 +47,27 @@
     <div id="hud">
       <div id="score">Score: 0</div>
       <div id="wave">Wave: 1</div>
+      <div id="waveTimer">Next: 11s</div>
       <div id="lives">Lives: ❤️❤️❤️</div>
     </div>
 
-    <div id="startScreen" class="screen">
+    <div id="startScreen" class="screen with-popup-leaderboard">
       <h1>🚀 INNOVATION MANIAC</h1>
       <p>Pilot your innovation ship through waves of obsolete tech!</p>
       <p><strong>Controls:</strong></p>
-      <p>⬅️ ➡️ ARROW KEYS to move | SPACE to shoot | ESC to pause</p>
-      <p>Collect <span class="highlight">✨ powerups</span> to upgrade your weapons!</p>
-      <p class="highlight">Survive as long as you can!</p>
+      <p>🖱️ MOUSE to move | SPACE or CLICK to shoot | ESC to pause</p>
+      <p>Collect <span class="highlight">✨ powerups</span> for temporary abilities!</p>
+      <p class="highlight">Survive the escalating chaos!</p>
+      <button onclick="startGame()">START MISSION</button>
+      <button onclick="showHighscores()">VIEW HIGHSCORES</button>
+    </div>
+
+    <div id="highscorePopup" onclick="hideHighscores()">
+      <h2>🏆 TOP 10 LEADERBOARD</h2>
       <div id="leaderboard">
-        <h2>🏆 TOP 10 LEADERBOARD</h2>
         <div id="leaderboardList"></div>
       </div>
-      <button onclick="startGame()">START MISSION</button>
-      <a href="index.html">← ALL GAMES</a>
+      <p>Click anywhere to return</p>
     </div>
 
     <div id="pauseScreen" class="screen hidden">
@@ -44,7 +75,6 @@
       <p>Mission suspended. Press ESC to resume.</p>
       <button onclick="resumeGame()">RESUME</button>
       <button onclick="restartGame()">RESTART</button>
-      <a href="index.html">← ALL GAMES</a>
     </div>
 
     <div id="gameOverScreen" class="screen hidden">
@@ -61,6 +91,7 @@
     const ctx = canvas.getContext('2d');
     const scoreDisplay = document.getElementById('score');
     const waveDisplay = document.getElementById('wave');
+    const waveTimerDisplay = document.getElementById('waveTimer');
     const livesDisplay = document.getElementById('lives');
 
     // Audio context for sound effects
@@ -73,6 +104,9 @@
     let score = 0;
     let lives = 3;
     let wave = 1;
+    let waveTimer = 11; // Time until next wave
+    const WAVE_DURATION = 11; // Seconds per wave
+    let timeScale = 1.0; // Global speed multiplier - increases with waves
     let screenShake = 0;
 
     // Stars for scrolling background
@@ -98,8 +132,23 @@
       powerLevel: 1 // 1 = single shot, 2 = double, 3 = triple
     };
 
+    // Active powerups with timers
+    const activePowerups = {
+      tripleShot: 0,
+      shield: 0,
+      rapidFire: 0,
+      invincibility: 0
+    };
+
+    // Combo system
+    let comboCount = 0;
+    let comboTimer = 0;
+    const COMBO_TIMEOUT = 2; // Seconds before combo resets
+    let scoreMultiplier = 1;
+
     // Game objects
     let bullets = [];
+    let enemyBullets = [];
     let enemies = [];
     let powerups = [];
     let particles = [];
@@ -111,6 +160,11 @@
 
     // Input
     const keys = {};
+    const mouse = {
+      x: canvas.width / 2,
+      y: canvas.height - 80,
+      down: false
+    };
 
     // Sound effects
     function playSound(frequency, duration, type = 'sine') {
@@ -131,7 +185,23 @@
     }
 
     function shootSound() {
-      playSound(600, 0.1, 'square');
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      // Punchy laser sound with frequency sweep
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.08);
+
+      // Louder and punchier volume envelope
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.08);
     }
 
     function hitSound() {
@@ -209,7 +279,7 @@
       }
     }
 
-    // Bullet class
+    // Bullet class (player bullets)
     class Bullet {
       constructor(x, y) {
         this.x = x;
@@ -232,46 +302,186 @@
       }
     }
 
+    // Enemy Bullet class
+    class EnemyBullet {
+      constructor(x, y, vx = 0, vy = 150) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx; // Horizontal velocity for spread shots
+        this.vy = vy; // Vertical velocity
+        this.radius = 5;
+      }
+
+      update(delta) {
+        this.x += this.vx * delta;
+        this.y += this.vy * delta;
+      }
+
+      draw() {
+        ctx.fillStyle = "#f00";
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#f00";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Draw trail
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = "#f00";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 5, this.radius * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // Enemy class
     class Enemy {
       constructor() {
-        this.x = Math.random() * (canvas.width - 40) + 20;
+        this.x = Math.random() * (canvas.width - 80) + 40;
         this.y = -40;
         this.width = 30;
         this.height = 30;
         this.speed = 80 + Math.random() * 50 + (wave * 5);
-        this.health = Math.floor(wave / 3) + 1;
-        this.maxHealth = this.health;
-        this.type = Math.random() < 0.7 ? 'normal' : 'fast';
+        this.health = 1; // All enemies are 1-hit kill for fairness
 
-        if (this.type === 'fast') {
-          this.speed *= 1.5;
-          this.width = 20;
-          this.height = 20;
+        // Determine enemy type: charger (30%), shooter (50%), sprayer (20%)
+        const rand = Math.random();
+        if (rand < 0.3) {
+          this.type = 'charger';
+        } else if (rand < 0.8) {
+          this.type = 'shooter';
+        } else {
+          this.type = 'sprayer';
+        }
+
+        // Shooting properties
+        this.shootCooldown = 0;
+        this.shootDelay = 2 - (wave * 0.1); // Faster shooting at higher waves
+        this.hasShot = false; // For shooter type
+        this.stopPosition = canvas.height * 0.3; // Where shooters stop
+
+        // Movement pattern: straight (40%), zigzag (30%), dive (20%), formation (10%)
+        const moveRand = Math.random();
+        if (moveRand < 0.4) {
+          this.movePattern = 'straight';
+        } else if (moveRand < 0.7) {
+          this.movePattern = 'zigzag';
+        } else if (moveRand < 0.9) {
+          this.movePattern = 'dive';
+        } else {
+          this.movePattern = 'formation';
+        }
+
+        // Movement pattern properties
+        this.moveTimer = 0;
+        this.zigzagAmplitude = 50;
+        this.zigzagFrequency = 2;
+        this.initialX = this.x;
+        this.isDiving = false;
+
+        // Visual properties based on type
+        if (this.type === 'charger') {
+          // Fast moving, no shooting
+          this.speed *= 1.3;
+          this.color = '#f00'; // Red
+        } else if (this.type === 'shooter') {
+          // Stops and shoots
+          this.color = '#f0f'; // Magenta
+        } else {
+          // Sprayer - shoots while moving
+          this.color = '#fa0'; // Orange
         }
       }
 
       update(delta) {
-        this.y += this.speed * delta;
+        this.moveTimer += delta;
+
+        // Apply movement pattern
+        if (this.movePattern === 'straight') {
+          // Standard downward movement
+          this.y += this.speed * delta;
+
+        } else if (this.movePattern === 'zigzag') {
+          // Sine wave horizontal movement
+          this.y += this.speed * delta;
+          this.x = this.initialX + Math.sin(this.moveTimer * this.zigzagFrequency) * this.zigzagAmplitude;
+
+        } else if (this.movePattern === 'dive') {
+          // Accelerate toward player when in range
+          if (this.y > canvas.height * 0.2 && !this.isDiving) {
+            this.isDiving = true;
+          }
+
+          if (this.isDiving) {
+            // Dive toward player
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 0) {
+              this.x += (dx / dist) * this.speed * delta * 1.5;
+              this.y += (dy / dist) * this.speed * delta * 1.5;
+            }
+          } else {
+            this.y += this.speed * delta;
+          }
+
+        } else if (this.movePattern === 'formation') {
+          // Formation movement (slight zigzag, stays in formation)
+          this.y += this.speed * delta;
+          this.x += Math.sin(this.moveTimer * 1.5) * 20 * delta;
+        }
+
+        // Shooter stops at position
+        if (this.type === 'shooter' && this.y >= this.stopPosition && this.movePattern !== 'dive') {
+          this.y = this.stopPosition;
+
+          // Shoot after stopping
+          if (!this.hasShot) {
+            this.shoot();
+            this.hasShot = true;
+          }
+        }
+
+        // Sprayer shoots while moving
+        if (this.type === 'sprayer') {
+          this.shootCooldown -= delta;
+          if (this.shootCooldown <= 0) {
+            this.shoot();
+            this.shootCooldown = this.shootDelay;
+          }
+        }
+      }
+
+      shoot() {
+        if (this.type === 'shooter') {
+          // Shoot 1-3 bullets downward based on wave
+          const bulletCount = Math.min(3, Math.floor(wave / 3) + 1);
+          for (let i = 0; i < bulletCount; i++) {
+            enemyBullets.push(new EnemyBullet(this.x, this.y + 20, 0, 150));
+          }
+        } else if (this.type === 'sprayer') {
+          // Shoot spread pattern
+          const angles = [-0.5, 0, 0.5]; // Spread angles
+          for (let angle of angles) {
+            const vx = Math.sin(angle) * 100;
+            const vy = Math.cos(angle) * 150;
+            enemyBullets.push(new EnemyBullet(this.x, this.y + 20, vx, vy));
+          }
+        }
+
+        // Play enemy shoot sound
+        playSound(200, 0.08, 'square');
       }
 
       draw() {
-        const color = this.type === 'fast' ? '#f0f' : '#f00';
-
-        // Health bar
-        if (this.health < this.maxHealth) {
-          ctx.fillStyle = '#300';
-          ctx.fillRect(this.x - 15, this.y - 10, 30, 3);
-          ctx.fillStyle = '#0f0';
-          ctx.fillRect(this.x - 15, this.y - 10, 30 * (this.health / this.maxHealth), 3);
-        }
-
-        // Enemy body
-        ctx.fillStyle = color;
+        // Enemy body - triangle pointing down
+        ctx.fillStyle = this.color;
         ctx.shadowBlur = 15;
-        ctx.shadowColor = color;
+        ctx.shadowColor = this.color;
 
-        // Draw as triangle
         ctx.beginPath();
         ctx.moveTo(this.x, this.y + this.height / 2);
         ctx.lineTo(this.x - this.width / 2, this.y - this.height / 2);
@@ -280,6 +490,15 @@
         ctx.fill();
 
         ctx.shadowBlur = 0;
+
+        // Draw indicator for shooter type
+        if (this.type === 'shooter' && this.y >= this.stopPosition) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.width * 0.8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
 
       hit() {
@@ -290,40 +509,76 @@
 
     // Powerup class
     class Powerup {
-      constructor() {
-        this.x = Math.random() * (canvas.width - 40) + 20;
-        this.y = -40;
-        this.size = 20;
-        this.speed = 100;
+      constructor(nearEnemy = null) {
+        // Powerup types: tripleShot, shield, rapidFire, smartBomb, invincibility
+        const types = ['tripleShot', 'shield', 'rapidFire', 'smartBomb', 'invincibility'];
+        this.type = types[Math.floor(Math.random() * types.length)];
+
+        // Spawn near enemies for risk/reward
+        if (nearEnemy && Math.random() < 0.7) {
+          this.x = nearEnemy.x + (Math.random() - 0.5) * 100;
+          this.y = nearEnemy.y + (Math.random() - 0.5) * 100;
+          this.x = Math.max(30, Math.min(canvas.width - 30, this.x));
+          this.y = Math.max(-20, Math.min(canvas.height / 3, this.y));
+        } else {
+          this.x = Math.random() * (canvas.width - 60) + 30;
+          this.y = -40;
+        }
+
+        this.size = 18;
+        this.speed = 80;
         this.angle = 0;
+        this.pulse = 0;
+
+        // Visual properties per type
+        this.colors = {
+          tripleShot: '#0ff',    // Cyan
+          shield: '#0f0',         // Green
+          rapidFire: '#ff0',      // Yellow
+          smartBomb: '#f0f',      // Magenta
+          invincibility: '#fff'   // White
+        };
+
+        this.icons = {
+          tripleShot: '🔫',
+          shield: '🛡️',
+          rapidFire: '⚡',
+          smartBomb: '💣',
+          invincibility: '⭐'
+        };
       }
 
       update(delta) {
         this.y += this.speed * delta;
-        this.angle += delta * 3;
+        this.angle += delta * 2;
+        this.pulse += delta * 5;
       }
 
       draw() {
+        const pulseSize = Math.sin(this.pulse) * 3 + this.size;
+
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
 
-        // Draw star
-        ctx.fillStyle = "#ff0";
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "#ff0";
+        // Glow effect
+        const color = this.colors[this.type];
+        ctx.shadowBlur = 20 + Math.sin(this.pulse) * 5;
+        ctx.shadowColor = color;
 
+        // Draw circle background
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.3;
         ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-          const angle = (i * 4 * Math.PI) / 5;
-          const r = i % 2 === 0 ? this.size : this.size / 2;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
+        ctx.arc(0, 0, pulseSize, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Draw icon
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.fillText(this.icons[this.type], 0, 0);
 
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -407,6 +662,7 @@
 
       gameState = "start";
       bullets = [];
+      enemyBullets = [];
       enemies = [];
       powerups = [];
       particles = [];
@@ -419,6 +675,7 @@
     function updateHUD() {
       scoreDisplay.textContent = "Score: " + score;
       waveDisplay.textContent = "Wave: " + wave;
+      waveTimerDisplay.textContent = "Next: " + Math.ceil(waveTimer) + "s";
       const hearts = "❤️".repeat(Math.max(0, lives));
       livesDisplay.textContent = "Lives: " + hearts;
     }
@@ -428,17 +685,55 @@
       enemies.push(new Enemy());
     }
 
-    // Spawn powerup
+    // Spawn powerup (spawn near enemy for risk/reward)
     function spawnPowerup() {
-      powerups.push(new Powerup());
+      const nearEnemy = enemies.length > 0 ? enemies[Math.floor(Math.random() * enemies.length)] : null;
+      powerups.push(new Powerup(nearEnemy));
+    }
+
+    // Activate powerup
+    function activatePowerup(type) {
+      const POWERUP_DURATION = 15; // seconds
+
+      if (type === 'tripleShot') {
+        activePowerups.tripleShot = POWERUP_DURATION;
+        player.powerLevel = 3;
+      } else if (type === 'shield') {
+        activePowerups.shield = POWERUP_DURATION;
+      } else if (type === 'rapidFire') {
+        activePowerups.rapidFire = POWERUP_DURATION;
+      } else if (type === 'invincibility') {
+        activePowerups.invincibility = 5; // Shorter duration
+      } else if (type === 'smartBomb') {
+        // Instant effect - clear all enemies and bullets
+        for (let enemy of enemies) {
+          score += 10;
+          explosions.push(new Explosion(enemy.x, enemy.y));
+          for (let k = 0; k < 10; k++) {
+            particles.push(new Particle(enemy.x, enemy.y, enemy.color));
+          }
+        }
+        enemies = [];
+        enemyBullets = [];
+        screenShake = 1.0;
+        playSound(100, 0.5, 'sawtooth');
+        setTimeout(() => playSound(150, 0.4, 'sawtooth'), 100);
+      }
+
+      powerupSound();
     }
 
     // Player shoot
     function shoot() {
+      const shootDelay = activePowerups.rapidFire > 0 ? player.shootDelay / 5 : player.shootDelay;
+
       if (player.shootCooldown <= 0) {
-        if (player.powerLevel === 1) {
+        // Determine shot pattern based on active powerups
+        const powerLevel = activePowerups.tripleShot > 0 ? 3 : player.powerLevel;
+
+        if (powerLevel === 1) {
           bullets.push(new Bullet(player.x, player.y - 20));
-        } else if (player.powerLevel === 2) {
+        } else if (powerLevel === 2) {
           bullets.push(new Bullet(player.x - 10, player.y - 20));
           bullets.push(new Bullet(player.x + 10, player.y - 20));
         } else {
@@ -446,7 +741,8 @@
           bullets.push(new Bullet(player.x, player.y - 20));
           bullets.push(new Bullet(player.x + 15, player.y - 20));
         }
-        player.shootCooldown = player.shootDelay;
+
+        player.shootCooldown = shootDelay;
         shootSound();
       }
     }
@@ -469,9 +765,21 @@
       // Limit delta to prevent huge jumps
       if (delta > 0.1) delta = 0.1;
 
+      // Apply global time scale for difficulty
+      delta *= timeScale;
+
       // Update cooldowns
       if (player.shootCooldown > 0) {
         player.shootCooldown -= delta;
+      }
+
+      // Update combo timer
+      if (comboTimer > 0) {
+        comboTimer -= delta / timeScale; // Don't speed up with timeScale
+        if (comboTimer <= 0) {
+          comboCount = 0;
+          scoreMultiplier = 1;
+        }
       }
 
       // Screen shake
@@ -498,14 +806,16 @@
         ctx.fillRect(star.x, star.y, star.size, star.size);
       }
 
-      // Update and draw player
-      if (keys['ArrowLeft'] && player.x > 20) {
-        player.x -= player.speed * delta;
-      }
-      if (keys['ArrowRight'] && player.x < canvas.width - 20) {
-        player.x += player.speed * delta;
-      }
-      if (keys[' ']) {
+      // Update player - smooth mouse following with lerp
+      const lerpSpeed = 8; // Smoothing factor
+      const targetX = Math.max(20, Math.min(canvas.width - 20, mouse.x));
+      const targetY = Math.max(canvas.height / 2, Math.min(canvas.height - 20, mouse.y));
+
+      player.x += (targetX - player.x) * lerpSpeed * delta;
+      player.y += (targetY - player.y) * lerpSpeed * delta;
+
+      // Shooting
+      if (keys[' '] || mouse.down) {
         shoot();
       }
 
@@ -522,6 +832,92 @@
       ctx.fill();
       ctx.shadowBlur = 0;
 
+      // Draw shield visual effect
+      if (activePowerups.shield > 0) {
+        const pulse = Math.sin(Date.now() / 100) * 5 + 35;
+        ctx.strokeStyle = '#0f0';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#0f0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      // Draw invincibility visual effect
+      if (activePowerups.invincibility > 0) {
+        const pulse = Math.sin(Date.now() / 50) * 0.5 + 0.5;
+        ctx.globalAlpha = 0.3 + pulse * 0.3;
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#fff';
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 50, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+
+      // Draw powerup timers around player
+      const powerupRadius = 55;
+      let powerupIndex = 0;
+      for (let key in activePowerups) {
+        if (activePowerups[key] > 0 && key !== 'shield' && key !== 'invincibility') {
+          const angle = (powerupIndex / 3) * Math.PI * 2 - Math.PI / 2;
+          const x = player.x + Math.cos(angle) * powerupRadius;
+          const y = player.y + Math.sin(angle) * powerupRadius;
+
+          // Draw icon
+          const icons = { tripleShot: '🔫', rapidFire: '⚡' };
+          const colors = { tripleShot: '#0ff', rapidFire: '#ff0' };
+
+          ctx.font = '20px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = colors[key];
+          ctx.fillStyle = colors[key];
+          ctx.fillText(icons[key], x, y);
+
+          // Draw timer bar
+          const timerWidth = 30;
+          const timerHeight = 3;
+          const timerPercent = activePowerups[key] / 15; // 15 second max
+          ctx.fillStyle = activePowerups[key] <= 3 ? '#f00' : colors[key];
+          ctx.fillRect(x - timerWidth / 2, y + 15, timerWidth * timerPercent, timerHeight);
+
+          ctx.shadowBlur = 0;
+          powerupIndex++;
+        }
+      }
+
+      // Draw combo counter
+      if (comboCount > 0 && scoreMultiplier > 1) {
+        const comboY = 100;
+        const pulse = Math.sin(Date.now() / 100) * 0.1 + 1;
+
+        ctx.font = `bold ${40 * pulse}px 'Courier New'`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Glow effect based on multiplier
+        const comboColors = { 1: '#fff', 2: '#ff0', 3: '#f0f', 5: '#f00' };
+        const color = comboColors[scoreMultiplier] || '#fff';
+
+        ctx.shadowBlur = 20 * pulse;
+        ctx.shadowColor = color;
+        ctx.fillStyle = color;
+        ctx.fillText(`${scoreMultiplier}X COMBO`, canvas.width / 2, comboY);
+
+        // Combo count below
+        ctx.font = '20px "Courier New"';
+        ctx.shadowBlur = 10;
+        ctx.fillText(`${comboCount} kills`, canvas.width / 2, comboY + 35);
+
+        ctx.shadowBlur = 0;
+      }
+
       // Update and draw bullets
       bullets = bullets.filter(bullet => {
         bullet.update(delta);
@@ -529,10 +925,52 @@
         return bullet.y > -20;
       });
 
+      // Update and draw enemy bullets
+      enemyBullets = enemyBullets.filter(bullet => {
+        bullet.update(delta);
+        bullet.draw();
+
+        // Check collision with player
+        const dist = Math.sqrt((player.x - bullet.x) ** 2 + (player.y - bullet.y) ** 2);
+        if (dist < 20) {
+          // Check for shield or invincibility
+          if (activePowerups.shield > 0) {
+            activePowerups.shield = 0; // Shield absorbs one hit
+            playSound(300, 0.2, 'square');
+          } else if (activePowerups.invincibility > 0) {
+            // Invincible - no damage
+          } else {
+            lives--;
+            screenShake = 0.3;
+            explosionSound();
+            updateHUD();
+
+            if (lives <= 0) {
+              gameOver();
+            }
+          }
+
+          // Create particles
+          for (let i = 0; i < 10; i++) {
+            particles.push(new Particle(bullet.x, bullet.y, "#f00"));
+          }
+
+          return false; // Remove bullet
+        }
+
+        return bullet.y < canvas.height + 20 && bullet.x > -20 && bullet.x < canvas.width + 20;
+      });
+
       // Update and draw enemies
       enemySpawnTimer += delta;
       if (enemySpawnTimer >= enemySpawnDelay) {
-        spawnEnemy();
+        // Spawn multiple enemies at higher waves
+        const spawnCount = wave < 5 ? 1 : (wave < 10 ? (Math.random() < 0.3 ? 2 : 1) : (Math.random() < 0.5 ? 2 : 1));
+
+        for (let i = 0; i < spawnCount; i++) {
+          spawnEnemy();
+        }
+
         enemySpawnTimer = 0;
       }
 
@@ -545,19 +983,27 @@
           { x: player.x - player.width / 2, y: player.y - player.height / 2, width: player.width, height: player.height },
           { x: enemy.x - enemy.width / 2, y: enemy.y - enemy.height / 2, width: enemy.width, height: enemy.height }
         )) {
-          lives--;
-          screenShake = 0.5;
-          explosionSound();
-          updateHUD();
+          // Check for shield or invincibility
+          if (activePowerups.shield > 0) {
+            activePowerups.shield = 0; // Shield absorbs one hit
+            playSound(300, 0.2, 'square');
+          } else if (activePowerups.invincibility > 0) {
+            // Invincible - destroy enemy without taking damage
+          } else {
+            lives--;
+            screenShake = 0.5;
+            explosionSound();
+            updateHUD();
+
+            if (lives <= 0) {
+              gameOver();
+            }
+          }
 
           // Create explosion
           explosions.push(new Explosion(enemy.x, enemy.y));
           for (let i = 0; i < 20; i++) {
             particles.push(new Particle(enemy.x, enemy.y, "#f00"));
-          }
-
-          if (lives <= 0) {
-            gameOver();
           }
 
           return false;
@@ -566,8 +1012,29 @@
         return enemy.y < canvas.height + 40;
       });
 
-      // Update powerup spawning (spawn every 15 seconds on average)
-      if (Math.random() < delta * 0.067) {
+      // Update active powerup timers
+      for (let key in activePowerups) {
+        if (activePowerups[key] > 0) {
+          activePowerups[key] -= delta / timeScale; // Don't speed up with timeScale
+
+          // Warning at 3 seconds remaining
+          if (activePowerups[key] <= 3 && activePowerups[key] > 3 - delta / timeScale) {
+            playSound(400, 0.05, 'sine');
+          }
+
+          // Deactivate when expired
+          if (activePowerups[key] <= 0) {
+            activePowerups[key] = 0;
+
+            if (key === 'tripleShot') {
+              player.powerLevel = 1; // Reset to single shot
+            }
+          }
+        }
+      }
+
+      // Update powerup spawning (spawn every 15-20 seconds)
+      if (Math.random() < delta * 0.06) {
         spawnPowerup();
       }
 
@@ -579,14 +1046,14 @@
         // Check collision with player
         const dist = Math.sqrt((player.x - powerup.x) ** 2 + (player.y - powerup.y) ** 2);
         if (dist < 30) {
-          player.powerLevel = Math.min(3, player.powerLevel + 1);
-          powerupSound();
+          activatePowerup(powerup.type);
           score += 50;
           updateHUD();
 
           // Create particles
+          const color = powerup.colors[powerup.type];
           for (let i = 0; i < 15; i++) {
-            particles.push(new Particle(powerup.x, powerup.y, "#ff0"));
+            particles.push(new Particle(powerup.x, powerup.y, color));
           }
 
           return false;
@@ -607,7 +1074,33 @@
 
             if (enemy.hit()) {
               enemies.splice(j, 1);
-              score += 10;
+
+              // Combo system
+              comboCount++;
+              comboTimer = COMBO_TIMEOUT;
+
+              // Calculate multiplier: 1x, 2x, 3x, 5x (caps at 5x)
+              const oldMultiplier = scoreMultiplier;
+              if (comboCount >= 20) {
+                scoreMultiplier = 5;
+              } else if (comboCount >= 10) {
+                scoreMultiplier = 3;
+              } else if (comboCount >= 5) {
+                scoreMultiplier = 2;
+              } else {
+                scoreMultiplier = 1;
+              }
+
+              // Play sound when multiplier increases
+              if (scoreMultiplier > oldMultiplier) {
+                playSound(800 + (scoreMultiplier * 200), 0.15, 'square');
+                setTimeout(() => playSound(1000 + (scoreMultiplier * 200), 0.15, 'square'), 50);
+              }
+
+              // Apply multiplier to score
+              const points = 10 * scoreMultiplier;
+              score += points;
+
               hitSound();
               updateHUD();
 
@@ -639,13 +1132,25 @@
 
       ctx.restore();
 
-      // Increase difficulty
-      const newWave = Math.floor(score / 100) + 1;
-      if (newWave > wave) {
-        wave = newWave;
-        enemySpawnDelay = Math.max(0.5, 2 - (wave * 0.1));
-        updateHUD();
+      // Time-based wave progression
+      waveTimer -= delta / timeScale; // Wave timer not affected by timeScale
+      if (waveTimer <= 0) {
+        wave++;
+        waveTimer = WAVE_DURATION;
+
+        // Aggressive difficulty scaling
+        // Spawn rate: exponential decrease from 1.5s to 0.05s
+        enemySpawnDelay = Math.max(0.05, 1.5 * Math.pow(0.8, wave - 1));
+
+        // Global speed increase: 1.0x → 1.8x by wave 12
+        timeScale = Math.min(1.8, 1.0 + (wave - 1) * 0.07);
+
+        // Play wave transition sound
+        playSound(600, 0.1, 'square');
+        setTimeout(() => playSound(800, 0.1, 'square'), 100);
       }
+
+      updateHUD();
 
       animationId = requestAnimationFrame(gameLoop);
     }
@@ -656,15 +1161,26 @@
       score = 0;
       lives = 3;
       wave = 1;
+      waveTimer = WAVE_DURATION;
+      timeScale = 1.0;
       player.x = canvas.width / 2;
+      player.y = canvas.height - 80;
       player.powerLevel = 1;
+      activePowerups.tripleShot = 0;
+      activePowerups.shield = 0;
+      activePowerups.rapidFire = 0;
+      activePowerups.invincibility = 0;
+      comboCount = 0;
+      comboTimer = 0;
+      scoreMultiplier = 1;
       bullets = [];
+      enemyBullets = [];
       enemies = [];
       powerups = [];
       particles = [];
       explosions = [];
       enemySpawnTimer = 0;
-      enemySpawnDelay = 2;
+      enemySpawnDelay = 1.5; // Starting spawn rate
       gameState = "playing";
       updateHUD();
       lastFrame = performance.now();
@@ -728,8 +1244,37 @@
       }
     });
 
+    // Mouse event listeners
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      mouse.down = true;
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      mouse.down = false;
+    });
+
+    canvas.addEventListener('mouseleave', (e) => {
+      mouse.down = false;
+    });
+
     // Initialize
     displayLeaderboard();
+
+    // Highscore popup functions
+    function showHighscores() {
+      displayLeaderboard();
+      document.getElementById('highscorePopup').classList.add('show');
+    }
+
+    function hideHighscores() {
+      document.getElementById('highscorePopup').classList.remove('show');
+    }
   </script>
 </body>
 </html>

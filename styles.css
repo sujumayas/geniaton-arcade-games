@@ -115,15 +115,18 @@ canvas {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   background: rgba(0, 0, 0, 0.95);
   z-index: 100;
+  overflow-y: auto;
+  padding: 40px 20px;
 }
 
 .screen h1 {
   font-size: 48px;
   margin-bottom: 20px;
+  margin-top: 0;
   text-shadow: var(--glow-strong);
   color: var(--primary-color);
 }
@@ -204,6 +207,8 @@ a.button:hover {
   background: rgba(0, 255, 0, 0.05);
   max-width: 500px;
   width: 90%;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 #leaderboard h2 {
@@ -212,6 +217,25 @@ a.button:hover {
   color: var(--secondary-color);
   text-shadow: var(--glow-secondary);
   text-align: center;
+}
+
+/* Alternative leaderboard displays */
+#leaderboardDisplay {
+  margin-top: 20px;
+  padding: 20px;
+  border: var(--border-width) solid var(--primary-color);
+  border-radius: var(--border-radius);
+  background: rgba(0, 255, 0, 0.05);
+  max-width: 500px;
+  width: 90%;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#leaderboardDisplay h3 {
+  color: var(--secondary-color);
+  text-shadow: var(--glow-secondary);
+  margin-bottom: 10px;
 }
 
 .leaderboard-entry {
@@ -346,6 +370,96 @@ input[type="text"]:focus {
   font-weight: bold;
   text-shadow: var(--glow-secondary);
   color: var(--secondary-color);
+}
+
+/* ===================================
+   Custom Scrollbar Styling
+   =================================== */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.screen::-webkit-scrollbar,
+#leaderboard::-webkit-scrollbar,
+#leaderboardDisplay::-webkit-scrollbar {
+  width: 8px;
+}
+
+.screen::-webkit-scrollbar-track,
+#leaderboard::-webkit-scrollbar-track,
+#leaderboardDisplay::-webkit-scrollbar-track {
+  background: rgba(0, 255, 0, 0.1);
+  border-radius: 4px;
+}
+
+.screen::-webkit-scrollbar-thumb,
+#leaderboard::-webkit-scrollbar-thumb,
+#leaderboardDisplay::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 4px;
+  box-shadow: 0 0 5px var(--primary-color);
+}
+
+.screen::-webkit-scrollbar-thumb:hover,
+#leaderboard::-webkit-scrollbar-thumb:hover,
+#leaderboardDisplay::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color);
+  box-shadow: 0 0 10px var(--secondary-color);
+}
+
+/* Firefox */
+.screen,
+#leaderboard,
+#leaderboardDisplay {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) rgba(0, 255, 0, 0.1);
+}
+
+/* ===================================
+   Highscore Popup System
+   =================================== */
+
+#highscorePopup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.98);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-in-out;
+}
+
+#highscorePopup.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#highscorePopup h2 {
+  font-size: 36px;
+  margin-bottom: 30px;
+  color: var(--primary-color);
+  text-shadow: var(--glow-strong);
+}
+
+#highscorePopup p {
+  font-size: 16px;
+  color: var(--text-color);
+  opacity: 0.7;
+  margin-top: 20px;
+}
+
+/* Hide default leaderboard on start screen when using popup */
+.screen.with-popup-leaderboard #leaderboard,
+.screen.with-popup-leaderboard #leaderboardDisplay {
+  display: none;
 }
 
 /* ===================================
